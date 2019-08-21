@@ -1,0 +1,4 @@
+gbemu
+*.o
+*.ini
+*.gb
