@@ -1,14 +1,18 @@
-#include "cpu.hpp"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "cpu.hpp"
+#include "ppu.hpp"
 
 Cpu::Cpu()
 {
+    ppu = nullptr;
     pc = 0x100;
     sp = 0xFFFE;
-    memset(memory, 0, sizeof(memory));
+    memset(rom, 0, sizeof(rom));
+    memset(wram, 0, sizeof(wram));
+    memset(hram, 0, sizeof(hram));
     memset(regs, 0, sizeof(regs));
 }
 
@@ -20,19 +24,129 @@ void Cpu::load(const char* path)
     fseek(fp, 0, SEEK_SET);
 
     assert(size <= 0x8000); // for now
-    if (fread(memory, 1, size, fp) != size) {
+    if (fread(rom, 1, size, fp) != size) {
         perror("fread: ");
         exit(1);
     }
 
-    assert(memory[0x104] == 0xCE && memory[0x105] == 0xED);
+    assert(rom[0x104] == 0xCE && rom[0x105] == 0xED);
     char title[17];
-    memcpy(title, memory + 0x134, 16);
+    memcpy(title, rom + 0x134, 16);
     title[16] = 0;
 
     puts(title);
 
-    assert(memory[0x147] == 0 && memory[0x148] == 0);
+    assert(rom[0x147] == 0 && rom[0x148] == 0);
+}
+
+uint8_t Cpu::mem(uint16_t a)
+{
+    if (a <= 0x7FFF) return rom[a];
+    if (a <= 0x9FFF) {
+        if (!ppu->vramaccess()) return 0xFF;
+        return ppu->vram[a - 0x8000];
+    }
+    if (a <= 0xBFFF) {
+        fprintf(stderr, "ERAM not supported\n");
+        return 0xFF;
+    }
+    if (a <= 0xDFFF) return wram[a - 0xC000];
+    if (a <= 0xFDFF) return wram[a - 0xE000];
+    if (a <= 0xFE9F) {
+        if (!ppu->oamaccess()) return 0xFF;
+        return ppu->oam[a - 0xFE00];
+    }
+    if (a <= 0xFEFF) {
+        fprintf(stderr, "Forbidden access to %04x (pc = %04x)", a, pc);
+        return 0xFF;
+    }
+
+    if (a <= 0xFF7F) {
+        switch(a) {
+            case 0xFF0F: return if_;
+            case 0xFF40: return ppu->lcdc;
+            case 0xFF41: return ppu->stat;
+            case 0xFF42: return ppu->scy;
+            case 0xFF43: return ppu->scx;
+            case 0xFF44: return ppu->ly;
+            case 0xFF45: return ppu->lyc;
+            case 0xFF47: return ppu->bgp;
+            case 0xFF48: return ppu->obp0;
+            case 0xFF49: return ppu->obp1;
+            case 0xFF4A: return ppu->wy;
+            case 0xFF4B: return ppu->wx;
+            default:
+                fprintf(stderr, "Unsupported I/O read: %04x (pc = %04x)\n", a, pc);
+                return 0xFF;
+        }
+    }
+
+    if (a <= 0xFFFE) return hram[a - 0xFF80];
+    return ie;
+}
+
+void Cpu::memw(uint16_t a, uint8_t v)
+{
+    if (a <= 0x7FFF) return;
+    if (a <= 0x9FFF) {
+        if (!ppu->vramaccess()) return;
+        ppu->vram[a - 0x8000] = v;
+        return;
+    }
+    if (a <= 0xBFFF) {
+        fprintf(stderr, "ERAM not supported\n");
+        return;
+    }
+    if (a <= 0xDFFF) {
+        wram[a - 0xC000] = v;
+        return;
+    }
+    if (a <= 0xFDFF) {
+        wram[a - 0xE000] = v;
+        return;
+    }
+    if (a <= 0xFE9F) {
+        if (!pp->oamaccess() return;
+        ppu->oam[a - 0xFE00] = v;
+        return;
+    }
+    if (a <= 0xFEFF) {
+        fprintf(stderr, "Forbidden access to %04x (pc = %04x)", a, pc);
+        return;
+    }
+
+    if (a <= 0xFF7F) {
+        switch(a) {
+            case 0xFF0F: if_ = v; break;
+            case 0xFF40: ppu->lcdc = v; break;
+            case 0xFF41: assert((v & 0xF) == 0); ppu->stat = v; break; // TODO: only change top bits
+            case 0xFF42: ppu->scy = v; break;
+            case 0xFF43: ppu->scx = v; break;
+            case 0xFF45: ppu->lyc = v; break;
+            case 0xFF46: fprintf(stderr, "OAM DMA not implemented\n"); break;
+            case 0xFF47: ppu->bgp = v; break;
+            case 0xFF48: ppu->obp0 = v; break;
+            case 0xFF49: ppu->obp1 = v; break;
+            case 0xFF4A: ppu->wy = v; break;
+            case 0xFF4B: ppu->wx = v; break;
+            default:
+                fprintf(stderr, "Unsupported I/O write: %04x (pc = %04x)\n", a, pc);
+                return;
+        }
+    }
+
+    if (a <= 0xFFFE) {
+        hram[a - 0xFF80] = v;
+        return;
+    }
+    ie = v;
+}
+
+void Cpu::push(uint16_t v)
+{
+    sp -= 2;
+    memw(sp, v & 0xFF);
+    memw(sp+1, v >> 8);
 }
 
 uint16_t Cpu::af()
@@ -58,7 +172,22 @@ uint16_t Cpu::hl()
 
 SideEffects Cpu::cycle()
 {
-    uint8_t instr = memory[pc];
+    if (ime) {
+        uint16_t int_handlers[] = {0x40, 0x48, 0x50, 0x58, 0x60};
+        for (int i = 0; i <= 4; i++)
+        {
+            if (((ie & if_) >> i) & 1) {
+                printf("interrupt %d\n", i);
+                if_ &= ~(1 << i);
+                ime = false;
+                push(pc);
+                pc = int_handlers[i];
+                break;
+            }
+        }
+    }
+
+    uint8_t instr = mem(pc);
     pc++;
     SideEffects eff;
     eff.cycles = 0;
@@ -69,13 +198,13 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x01: // LD BC, d16
-            regs[REG_C] = memory[pc++];
-            regs[REG_B] = memory[pc++];
+            regs[REG_C] = mem(pc++);
+            regs[REG_B] = mem(pc++);
             eff.cycles = 12;
             break;
 
         case 0x02: // LD (BC), A
-            memory[bc()] = regs[REG_A];
+            memw(bc(), regs[REG_A]);
             eff.cycles = 8;
             break;
 
@@ -106,18 +235,26 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x06: // LD B,d8
-            regs[REG_B] = memory[pc++];
+            regs[REG_B] = mem(pc++);
             eff.cycles = 8;
             break;
 
+        case 0x0d: // DEC C
+            z = regs[REG_C] == 1;
+            h = (regs[REG_C] & 0xF) == 0;
+            n = 1;
+            regs[REG_C]--;
+            eff.cycles = 4;
+            break;
+
         case 0x0e: // LD C,d8
-            regs[REG_C] = memory[pc++];
+            regs[REG_C] = mem(pc++);
             eff.cycles = 8;
             break;
 
         case 0x20: // JR NZ,r8
             if (!z) {
-                pc += (int8_t)memory[pc]+1;
+                pc += (int8_t)mem(pc++);
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -126,20 +263,25 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x21: // LD HL,d16
-            regs[REG_L] = memory[pc++];
-            regs[REG_H] = memory[pc++];
+            regs[REG_L] = mem(pc++);
+            regs[REG_H] = mem(pc++);
             eff.cycles = 12;
             break;
 
         case 0x32: // LDD (HL),A
         {
-            memory[hl()] = regs[REG_A];
+            memw(hl(), regs[REG_A]);
             uint16_t v = hl()-1;
             regs[REG_L] = v & 0xFF;
             regs[REG_H] = v >> 8;
             eff.cycles = 8;
             break;
         }
+
+        case 0x3e: // LD A,d8
+            regs[REG_A] = mem(pc++);
+            eff.cycles = 8;
+            break;
 
         case 0xaf: // XOR A
             regs[REG_A] = 0;
@@ -151,12 +293,49 @@ SideEffects Cpu::cycle()
             break;
 
         case 0xc3: // JP a16
-            pc = memory[pc] | (memory[pc+1] << 8);
+            pc = mem(pc) | (mem(pc+1) << 8);
             eff.cycles = 16;
             break;
 
+        case 0xe0: // LD ($ff00+a8),A
+            memw(0xff00 + mem(pc++), regs[REG_A]);
+            eff.cycles = 12;
+            break;
+
+        case 0xf0: // LD A,($ff00+a8)
+            regs[REG_A] = mem(0xff00+mem(pc++));
+            eff.cycles = 12;
+            break;
+
+        case 0xf2: // LD A,(C)
+            regs[REG_A] = mem(regs[REG_C]);
+            eff.cycles = 8;
+            break;
+
+        case 0xf3: // DI
+            ime = false;
+            eff.cycles = 4;
+            break;
+
+        case 0xfb: // EI
+            ime = true;
+            eff.cycles = 4;
+            break;
+            // FIXME: bug here: the next instruction cannot be interrupted on the GB
+        
+        case 0xfe: // CP d8
+        {
+            uint8_t d8 = mem(pc++);
+            c = d8 > regs[REG_A];
+            z = d8 == regs[REG_A];
+            n = 1;
+            h = (d8 & 0xF) > (regs[REG_A] & 0xF);
+            eff.cycles = 8;
+            break;
+        }
+
         default:
-            fprintf(stderr, "Unknown instruction: %x\n", instr);
+            fprintf(stderr, "Unknown instruction %02x at address %04x\n", instr, pc-1);
             exit(1);
     }
 
@@ -166,9 +345,9 @@ SideEffects Cpu::cycle()
 
 void Cpu::disas(uint16_t addr, char* buf)
 {
-    uint8_t instr = memory[addr];
-    uint8_t op8 = memory[addr+1];
-    uint16_t op16 = (memory[addr+2] << 8) | memory[addr+1];
+    uint8_t instr = mem(addr);
+    uint8_t op8 = mem(addr+1);
+    uint16_t op16 = (mem(addr+2) << 8) | mem(addr+1);
     switch(instr) {
         case 0x0:
             sprintf(buf, "NOP");

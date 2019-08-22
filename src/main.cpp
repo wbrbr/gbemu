@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include "cpu.hpp"
+#include "ppu.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl2.h"
@@ -14,9 +15,11 @@ enum ExecMode {
 
 uint16_t bp = -1;
 
-void drawRegsWindow(Cpu& cpu)
+void drawRegsWindow(Cpu& cpu, Ppu& ppu)
 {
     ImGui::Begin("Registers");
+
+    ImGui::Columns(2);
     char buf[20];
     sprintf(buf, "AF = %04x", cpu.af());
     ImGui::Text(buf);
@@ -40,8 +43,12 @@ void drawRegsWindow(Cpu& cpu)
     sprintf(buf, "C = %d", cpu.c);
     ImGui::Text(buf);
 
-    ImGui::Separator();
-    sprintf(buf, "Next instr: %02x", cpu.memory[cpu.pc]);
+    ImGui::NextColumn();
+    sprintf(buf, "STAT = %02x", ppu.stat);
+    ImGui::Text(buf);
+    sprintf(buf, "LY = %02x", ppu.ly); 
+    ImGui::Text(buf);
+    sprintf(buf, "MODE = %d", ppu.stat & 3);
     ImGui::Text(buf);
     ImGui::End();
 }
@@ -56,7 +63,7 @@ void drawInstrWindow(Cpu& cpu)
         if (i == cpu.pc ) b = '>';
         else if (i == bp) b = '*';
         else b = ' ';
-        sprintf(buf, "%c %04x %02x", b, i, cpu.memory[i]);
+        sprintf(buf, "%c %04x %02x", b, i, cpu.mem(i));
         ImGui::Text(buf);
     }
     ImGui::Separator();
@@ -111,11 +118,16 @@ int main(int argc, char** argv)
 
     Cpu cpu;
     cpu.load(argv[1]);
+    
+    Ppu ppu;
+    cpu.ppu = &ppu;
 
     ExecMode mode = MODE_STEP;
 
     bool go_step = false;
     bool running = true;
+
+    const int CYCLES_PER_FRAME = 69905; // 4194304 / 60;
 
     while (running) {
 
@@ -139,24 +151,36 @@ int main(int argc, char** argv)
             ImGui_ImplSDL2_ProcessEvent(&e);
         }
 
-        if (mode == MODE_RUNBREAK && cpu.pc == bp) {
-            mode = MODE_STEP;
-            go_step = false;
-        }
-
-        if (mode != MODE_STEP || go_step) {
-            SideEffects eff = cpu.cycle();
-            go_step = false;
+        if (mode == MODE_STEP) {
+            if (go_step) {
+                SideEffects eff = cpu.cycle();
+                ppu.exec(eff.cycles);
+                go_step = false;
+            }
+        } else {
+            for (int i = 0; i < CYCLES_PER_FRAME;)
+            {
+                SideEffects eff = cpu.cycle();
+                ppu.exec(eff.cycles);
+                i += eff.cycles;
+                if (mode == MODE_RUNBREAK && cpu.pc == bp) {
+                    mode = MODE_STEP;
+                    go_step = false;
+                    break;
+                }
+            }
         }
 
         ImGui_ImplOpenGL2_NewFrame();
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
         if (mode == MODE_STEP) {
-            drawRegsWindow(cpu);
+            drawRegsWindow(cpu, ppu);
             drawInstrWindow(cpu);
             // ImGui::ShowDemoWindow();
         }
+
+
         ImGui::Render();
 
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
