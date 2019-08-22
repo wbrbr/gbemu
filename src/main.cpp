@@ -16,6 +16,7 @@ enum ExecMode {
 uint16_t bp = 0x27cc;
 uint16_t mem_beg = 0;
 uint16_t mem_end = 0;
+uint32_t tiles_tex;
 
 void drawRegsWindow(Cpu& cpu, Ppu& ppu)
 {
@@ -95,6 +96,53 @@ void drawMemWindow(Cpu& cpu)
     ImGui::End();
 }
 
+void drawTilesWindow(Ppu& ppu)
+{
+    ImGui::Begin("Tiles");
+    uint32_t pixels[8*16*8*24];
+
+    uint8_t* p = ppu.vram;
+    // 16 x 24
+    for (int i = 0; i < 384; i++)
+    {
+
+        int xi = i % 16;
+        int yi = i / 16;
+
+        for (int y = 0; y < 8; y++)
+        {
+            uint8_t b1 = *p;
+            p++;
+            uint8_t b2 = *p;
+            p++;
+            for (int x = 0; x < 8; x++)
+            {
+                uint8_t lsb = (b1 >> (7 - x)) & 1;
+                uint8_t msb = (b2 >> (7 - x)) & 1;
+                uint8_t pal = lsb | (msb << 1);
+
+                // uint32_t values[] = { 0x081820ff, 0x346856ff, 0x88c070ff, 0xe0f8d0ff };
+                uint32_t values[] = { 0x000000ff, 0x346856ff, 0x88c070ff, 0xe0f8d0ff };
+                pixels[8*16*(8*yi+y)+(8*xi+x)] = values[pal];
+                // pixels[8*16*(8*yi+y)+(8*xi+x)] = 0;
+                // pixels[8*16*y+x] = 0;
+
+            }
+        }
+    }
+
+    ImVec2 size;
+    size.x = 16*8;
+    size.y = 24*8;
+
+    glBindTexture(GL_TEXTURE_2D, tiles_tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 16*8, 24*8, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+    ImGui::Image((void*)(intptr_t)tiles_tex, size);
+    ImGui::End();
+    // TODO: don't stream the texture each frame
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2) {
@@ -133,6 +181,15 @@ int main(int argc, char** argv)
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 160, 144, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+    glGenTextures(1, &tiles_tex);
+    glBindTexture(GL_TEXTURE_2D, tiles_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 8*16, 8*24, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -202,6 +259,7 @@ int main(int argc, char** argv)
             drawRegsWindow(cpu, ppu);
             drawInstrWindow(cpu);
             drawMemWindow(cpu);
+            drawTilesWindow(ppu);
             // ImGui::ShowDemoWindow();
         }
 
@@ -211,6 +269,7 @@ int main(int argc, char** argv)
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
+        glBindTexture(GL_TEXTURE_2D, texture);
 
         glBegin(GL_QUADS);
         glTexCoord2f(0.0f, 0.0f);
@@ -221,7 +280,6 @@ int main(int argc, char** argv)
         glVertex2f(1.f, -1.f);
         glTexCoord2f(.0f, 1.0f);
         glVertex2f(-1.f, -1.f);
-
         glEnd();
 
         ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
