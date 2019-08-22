@@ -34,12 +34,14 @@ struct Cpu
     uint8_t mem(uint16_t a);
     void memw(uint16_t a, uint8_t v);
     void push(uint16_t v);
+    uint8_t pop8();
+    uint16_t pop16();
 
     Ppu* ppu;
 
     uint8_t rom[0x8000];
     uint8_t wram[0x2000];
-    uint8_t hram[63];
+    uint8_t hram[128];
     // uint8_t memory[0xffff];
     uint8_t regs[7];
     uint16_t sp, pc;
@@ -47,5 +49,8 @@ struct Cpu
 
     bool ime;
     uint8_t ie, if_;
+
+private:
+    void execPrefix(SideEffects& eff);
 };
 #endif

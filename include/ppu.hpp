@@ -20,13 +20,10 @@ struct Ppu
     // palette index -> color code
     uint8_t palette(uint8_t i);
 
-    uint8_t lcdc,stat, scy, scx, ly, lyc, dma, bgp, obp0, obp1, wy, wx;
+    uint8_t lcdc, stat, scy, scx, ly, lyc, dma, bgp, obp0, obp1, wy, wx;
     uint8_t vram[0x2000];
-    uint8_t oam[80];
+    uint8_t oam[160];
 
     int cycle_count;
-
-    uint8_t vram[0x2000];
-    uint8_t oam[80];
 };
 #endif

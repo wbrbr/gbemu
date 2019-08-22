@@ -1,5 +1,6 @@
 #include "ppu.hpp"
 #include <stdio.h>
+#include <assert.h>
 
 Ppu::Ppu()
 {
@@ -12,8 +13,8 @@ Ppu::Ppu()
 
 void Ppu::exec(uint8_t cycles)
 {
+    if ((lcdc & (1 << 7)) == 0) return;
     cycle_count += cycles;
-    printf("%d\n", cycle_count);
     switch(stat & 0x3) {
         case MODE_OAM_SEARCH:
             if (cycle_count >= 80) {
@@ -61,17 +62,17 @@ void Ppu::exec(uint8_t cycles)
     }
 }
 
-bool vramaccess()
+bool Ppu::vramaccess()
 {
-    return ((lcdc & (1 << 7)) == 0) || (stat & 3 < 3);
+    return ((lcdc & (1 << 7)) == 0) || ((stat & 3) < 3);
 }
 
-bool oamaccess()
+bool Ppu::oamaccess()
 {
-    return ((lcdc & (1 << 7)) == 0) || (stat & 3 < 2);
+    return ((lcdc & (1 << 7)) == 0) || ((stat & 3) < 2);
 }
 
-uint8_t palette(uint8_t i)
+uint8_t Ppu::palette(uint8_t i)
 {
     assert(i < 4);
     return (bgp >> (2*i)) & 3;

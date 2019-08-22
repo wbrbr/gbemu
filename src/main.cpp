@@ -13,7 +13,9 @@ enum ExecMode {
     MODE_RUNBREAK,
 };
 
-uint16_t bp = -1;
+uint16_t bp = 0x27cc;
+uint16_t mem_beg = 0;
+uint16_t mem_end = 0;
 
 void drawRegsWindow(Cpu& cpu, Ppu& ppu)
 {
@@ -44,6 +46,8 @@ void drawRegsWindow(Cpu& cpu, Ppu& ppu)
     ImGui::Text(buf);
 
     ImGui::NextColumn();
+    sprintf(buf, "LCDC = %02x", ppu.lcdc);
+    ImGui::Text(buf);
     sprintf(buf, "STAT = %02x", ppu.stat);
     ImGui::Text(buf);
     sprintf(buf, "LY = %02x", ppu.ly); 
@@ -67,7 +71,27 @@ void drawInstrWindow(Cpu& cpu)
         ImGui::Text(buf);
     }
     ImGui::Separator();
-    ImGui::InputScalar("Breakpoint", ImGuiDataType_U16, &bp, NULL, NULL, "%04X", ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::InputScalar("Breakpoint", ImGuiDataType_U16, &bp, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::End();
+}
+
+void drawMemWindow(Cpu& cpu)
+{
+    ImGui::Begin("Memory");
+    ImGui::InputScalar("##beg", ImGuiDataType_U16, &mem_beg, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::SameLine();
+    ImGui::Text("-");
+    ImGui::SameLine();
+    ImGui::InputScalar("##end", ImGuiDataType_U16, &mem_end, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
+    char buf[100];
+    for (uint16_t i = mem_beg >> 4; i <= mem_end >> 4; i++)
+    {
+        sprintf(buf, "%04x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+                i * 16, cpu.mem(i*16), cpu.mem(i*16+1), cpu.mem(i*16+2), cpu.mem(i*16+3), cpu.mem(i*16+4), cpu.mem(i*16+5),
+                cpu.mem(i*16+6), cpu.mem(i*16+7), cpu.mem(i*16+8), cpu.mem(i*16+9), cpu.mem(i*16+10), cpu.mem(i*16+11),
+                cpu.mem(i*16+12), cpu.mem(i*16+13), cpu.mem(i*16+14), cpu.mem(i*16+15));
+        ImGui::Text(buf);
+    }
     ImGui::End();
 }
 
@@ -137,11 +161,11 @@ int main(int argc, char** argv)
             }
             if (mode == MODE_STEP && e.type == SDL_KEYDOWN) {
                 switch(e.key.keysym.scancode) {
-                    case SDL_SCANCODE_N:
+                    case SDL_SCANCODE_F7:
                         go_step = true;
                         break;
 
-                    case SDL_SCANCODE_C:
+                    case SDL_SCANCODE_F9:
                         mode = MODE_RUNBREAK;
 
                     default:
@@ -177,6 +201,7 @@ int main(int argc, char** argv)
         if (mode == MODE_STEP) {
             drawRegsWindow(cpu, ppu);
             drawInstrWindow(cpu);
+            drawMemWindow(cpu);
             // ImGui::ShowDemoWindow();
         }
 
