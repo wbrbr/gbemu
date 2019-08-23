@@ -13,10 +13,11 @@ enum ExecMode {
     MODE_RUNBREAK,
 };
 
-uint16_t bp = 0x27cc;
+uint16_t bp = 0x2ed;
 uint16_t mem_beg = 0;
 uint16_t mem_end = 0;
 uint32_t tiles_tex;
+uint32_t bgmap_tex;
 
 void drawRegsWindow(Cpu& cpu, Ppu& ppu)
 {
@@ -143,6 +144,46 @@ void drawTilesWindow(Ppu& ppu)
     // TODO: don't stream the texture each frame
 }
 
+void drawBGMapWindow(Ppu& ppu)
+{
+    ImGui::Begin("BG Map");
+    uint32_t pixels[256*256];
+    uint32_t values[] = { 0xff000000, 0x346856ff, 0x88c070ff, 0xe0f8d0ff };
+
+    // TODO: addressing modes
+    
+    for (int yi = 0; yi < 32; yi++)
+    {
+        for (int xi = 0; xi < 32; xi++)
+        {
+            int tile_index = ppu.vram[0x1800+yi*32+xi];
+            for (int y = 0; y < 8; y++)
+            {
+                uint8_t b1 = ppu.vram[tile_index * 16 + 2*y];
+                uint8_t b2 = ppu.vram[tile_index * 16 + 2*y + 1];
+                for (int x = 0; x < 8; x++)
+                {
+                    uint8_t lsb = (b1 >> (7 - x)) & 1;
+                    uint8_t msb = (b2 >> (7 - x)) & 1;
+                    uint8_t pal = lsb | (msb << 1);
+
+                    pixels[(yi*8+y)*256+xi*8+x] = values[pal];
+                }
+            }
+        }    
+    }
+
+    ImVec2 size;
+    size.x = 256;
+    size.y = 256;
+
+    glBindTexture(GL_TEXTURE_2D, bgmap_tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+    ImGui::Image((void*)(intptr_t)bgmap_tex, size);
+    ImGui::End();    
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2) {
@@ -174,22 +215,27 @@ int main(int argc, char** argv)
     ImGui_ImplOpenGL2_Init();	
 
 
-    uint32_t pixels[160*144];
-    memset(pixels, 0, sizeof(pixels));
     glEnable(GL_TEXTURE_2D);
     unsigned int texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 160, 144, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 160, 144, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-
     glGenTextures(1, &tiles_tex);
     glBindTexture(GL_TEXTURE_2D, tiles_tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 8*16, 8*24, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenTextures(1, &bgmap_tex);
+    glBindTexture(GL_TEXTURE_2D, bgmap_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -224,6 +270,22 @@ int main(int argc, char** argv)
 
                     case SDL_SCANCODE_F9:
                         mode = MODE_RUNBREAK;
+                        break;
+
+                    case SDL_SCANCODE_F10:
+                        mode = MODE_RUN;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            if (mode == MODE_RUN || mode == MODE_RUNBREAK) {
+                switch(e.key.keysym.scancode) {
+                    case SDL_SCANCODE_F8:
+                        mode = MODE_STEP;
+                        go_step = false;
+                        break;
 
                     default:
                         break;
@@ -252,6 +314,9 @@ int main(int argc, char** argv)
             }
         }
 
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGBA, GL_UNSIGNED_BYTE, ppu.framebuf);
+
         ImGui_ImplOpenGL2_NewFrame();
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
@@ -260,6 +325,7 @@ int main(int argc, char** argv)
             drawInstrWindow(cpu);
             drawMemWindow(cpu);
             drawTilesWindow(ppu);
+            drawBGMapWindow(ppu);
             // ImGui::ShowDemoWindow();
         }
 

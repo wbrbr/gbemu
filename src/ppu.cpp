@@ -9,6 +9,7 @@ Ppu::Ppu()
     scx = scy = ly = lyc = dma = bgp = obp0 = obp1 = wx = wy = 0;
     memset(vram, 0, sizeof(vram));
     memset(oam, 0, sizeof(oam));
+    memset(framebuf, 0, sizeof(framebuf));
 }
 
 void Ppu::exec(uint8_t cycles)
@@ -35,6 +36,24 @@ void Ppu::exec(uint8_t cycles)
         case MODE_HBLANK:
             if (cycle_count >= 204) {
                 // TODO: renderLine()
+                uint32_t values[] = { 0xff201808, 0xff566834, 0xff70c088, 0xffd0f8e0 };
+
+                for (int x = 0; x < 160; x++)
+                {
+                    int tile_x = x / 8;
+                    int tile_y = ly / 8;
+                    // TODO: palette, addressing modes, scrolling
+                    int tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+
+                    int x_off = x % 8;
+                    int y_off = ly % 8;
+                    uint8_t b1 = vram[tile_num * 16 + 2*y_off];
+                    uint8_t b2 = vram[tile_num * 16 + 2*y_off+1];
+                    uint8_t lsb = (b1 >> (7 - x_off)) & 1;
+                    uint8_t msb = (b2 >> (7 - x_off)) & 1;
+                    uint8_t pal = lsb | (msb << 1);
+                    framebuf[ly*160+x] = values[pal];
+                }
                 ly++;
                 if (ly == 144) {
                     stat &= ~(0b11);

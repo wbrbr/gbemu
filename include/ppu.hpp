@@ -25,5 +25,7 @@ struct Ppu
     uint8_t oam[160];
 
     int cycle_count;
+
+    uint32_t framebuf[160*144];
 };
 #endif

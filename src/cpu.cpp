@@ -307,6 +307,16 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
 
+        case 0x1A: // LD A,(DE)
+            regs[REG_A] = mem(de());
+            eff.cycles = 8;
+            break;
+
+        case 0x18: // JR r8
+            pc += (int8_t)mem(pc++);
+            eff.cycles = 12;
+            break;
+
         case 0x19: // ADD HL,DE
         {
             c = hl() + de() > 0xffff;
@@ -318,6 +328,14 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
         }
+
+        case 0x1c: // INC E
+            h = (regs[REG_E] & 0xf) == 0xf;
+            regs[REG_E]++;
+            z = regs[REG_E] == 0;
+            n = 0;
+            eff.cycles = 4;
+            break;
 
         case 0x20: // JR NZ,r8
             if (!z) {
@@ -334,6 +352,16 @@ SideEffects Cpu::cycle()
             regs[REG_H] = mem(pc++);
             eff.cycles = 12;
             break;
+
+        case 0x22: // LD (HL+),A
+        {
+            memw(hl(), regs[REG_A]);
+            uint16_t v = hl()+1;
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            eff.cycles = 8;
+            break;
+        }
 
         case 0x23: // INC HL
         {
@@ -363,6 +391,14 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
         }
+
+        case 0x2c: // INC L
+            h = (regs[REG_L] & 0xF) == 0xF;
+            regs[REG_L]++;
+            z = regs[REG_L] == 0;
+            n = 0;
+            eff.cycles = 4;
+            break;
 
         case 0x2f: // CPL
             regs[REG_A] ^= 0xff;
@@ -396,6 +432,17 @@ SideEffects Cpu::cycle()
             h = ((v & 0xf) == 0xf);
             n = 0;
             memw(hl(), v+1);
+            eff.cycles = 12;
+            break;
+        }
+
+        case 0x35: // DEC (HL)
+        {
+            uint8_t v = mem(hl());
+            z = v == 1;
+            h = (v & 0xF) == 0;
+            n = 1;
+            memw(hl(), v-1);
             eff.cycles = 12;
             break;
         }
@@ -456,9 +503,19 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x7c: // LD A,H
+            regs[REG_A] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
         case 0x79: // LD A,C
             regs[REG_A] = regs[REG_C];
             eff.cycles = 4;
+            break;
+
+        case 0x7e: // LD A,(HL)
+            regs[REG_A] = mem(hl());
+            eff.cycles = 8;
             break;
 
         case 0x87: // ADD A,A
@@ -554,6 +611,15 @@ SideEffects Cpu::cycle()
             eff.cycles = 16;
             break;
 
+        case 0xca: // JP Z,a16
+            if (z) {
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 16;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
         case 0xcb: // PREFIX
             execPrefix(eff);
             break;
