@@ -247,7 +247,9 @@ int main(int argc, char** argv)
     cpu.load(argv[1]);
     
     Ppu ppu;
+
     cpu.ppu = &ppu;
+    ppu.cpu = &cpu;
 
     ExecMode mode = MODE_STEP;
 

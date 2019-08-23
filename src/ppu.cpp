@@ -1,4 +1,5 @@
 #include "ppu.hpp"
+#include "cpu.hpp"
 #include <stdio.h>
 #include <assert.h>
 
@@ -7,6 +8,7 @@ Ppu::Ppu()
     lcdc = 0x91;
     stat = 0x85;
     scx = scy = ly = lyc = dma = bgp = obp0 = obp1 = wx = wy = 0;
+    cpu = nullptr;
     memset(vram, 0, sizeof(vram));
     memset(oam, 0, sizeof(oam));
     memset(framebuf, 0, sizeof(framebuf));
@@ -52,13 +54,14 @@ void Ppu::exec(uint8_t cycles)
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
                     uint8_t pal = lsb | (msb << 1);
-                    framebuf[ly*160+x] = values[pal];
+                    framebuf[ly*160+x] = values[palette(pal)];
                 }
                 ly++;
                 if (ly == 144) {
                     stat &= ~(0b11);
                     stat |= MODE_VBLANK;
-                    // TODO: trigger interrupt
+                    cpu->if_ |= 1;
+                    puts("vblank");
                 } else {
                     stat &= ~(0b11);
                     stat |= MODE_OAM_SEARCH;

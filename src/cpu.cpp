@@ -10,6 +10,9 @@ Cpu::Cpu()
     ppu = nullptr;
     pc = 0x100;
     sp = 0xFFFE;
+    ie = 0;
+    if_ = 0;
+    ime = true;
     memset(rom, 0, sizeof(rom));
     memset(wram, 0, sizeof(wram));
     memset(hram, 0, sizeof(hram));
@@ -75,7 +78,7 @@ uint8_t Cpu::mem(uint16_t a)
             case 0xFF4A: return ppu->wy;
             case 0xFF4B: return ppu->wx;
             default:
-                return 1;
+                return 0xFF;
                 fprintf(stderr, "Unsupported I/O read: %04x (pc = %04x)\n", a, pc);
         }
     }
@@ -250,6 +253,22 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
 
+        case 0x09: // ADD HL,BC
+        {
+            c = hl() + bc() > 0xffff;
+            h = (hl() & 0xfff) + (bc() & 0xfff) > 0xfff;
+            uint16_t v = hl() + bc();
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            n = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0x0a: // LD A,(BC)
+            regs[REG_A] = mem(bc());
+            eff.cycles = 8;
+            break;
 
         case 0x0b: // DEC BC
         {
@@ -400,6 +419,14 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x2d: // DEC L
+            n = 1;
+            h = (regs[REG_L] & 0xF) == 0;
+            regs[REG_L]--;
+            z = regs[REG_L] == 0;
+            eff.cycles = 4;
+            break;
+
         case 0x2f: // CPL
             regs[REG_A] ^= 0xff;
             n = 1;
@@ -473,9 +500,23 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
 
+        case 0x40: // LD B,B
+            eff.cycles = 4;
+            break;
+
+        case 0x46: // LD B,(HL)
+            regs[REG_B] = mem(hl());
+            eff.cycles = 8;
+            break;
+
         case 0x47: // LD B,A
             regs[REG_B] = regs[REG_A];
             eff.cycles = 4;
+            break;
+
+        case 0x4e: // LD C,(HL)
+            regs[REG_C] = mem(hl());
+            eff.cycles = 8;
             break;
 
         case 0x4f: // LD C,A
@@ -498,6 +539,26 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x60: // LD H,B
+            regs[REG_H] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x6f: // LD L,A
+            regs[REG_L] = regs[REG_A];
+            eff.cycles = 4;
+            break;
+
+        case 0x69: // LD L,C
+            regs[REG_L] = regs[REG_C];
+            eff.cycles = 4;
+            break;
+
+        case 0x77: // LD (HL),A
+            memw(hl(), regs[REG_A]);
+            eff.cycles = 8;
+            break;
+
         case 0x78: // LD A,B
             regs[REG_A] = regs[REG_B];
             eff.cycles = 4;
@@ -505,6 +566,11 @@ SideEffects Cpu::cycle()
 
         case 0x7c: // LD A,H
             regs[REG_A] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
+        case 0x7d: // LD A,L
+            regs[REG_A] = regs[REG_L];
             eff.cycles = 4;
             break;
 
@@ -516,6 +582,15 @@ SideEffects Cpu::cycle()
         case 0x7e: // LD A,(HL)
             regs[REG_A] = mem(hl());
             eff.cycles = 8;
+            break;
+
+        case 0x85: // ADD A,L
+            h = (regs[REG_A] & 0xf) + (regs[REG_L] & 0xf) > 0xf;
+            c = regs[REG_A] + regs[REG_L] > 0xff;
+            regs[REG_A] += regs[REG_L];
+            z = regs[REG_A] == 0;
+            n = 0;
+            eff.cycles = 4;
             break;
 
         case 0x87: // ADD A,A
@@ -587,6 +662,16 @@ SideEffects Cpu::cycle()
             eff.cycles = 12;
             break;
 
+        case 0xc2: // JP NZ,a16
+            if (!z) {
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 16;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
+
         case 0xc3: // JP a16
             pc = mem(pc) | (mem(pc+1) << 8);
             eff.cycles = 16;
@@ -596,6 +681,18 @@ SideEffects Cpu::cycle()
             push(bc());
             eff.cycles = 16;
             break;
+
+        case 0xc6: // ADD A,d8
+        {
+            uint8_t d8 = mem(pc++);
+            h = (regs[REG_A] & 0xf) + (d8 & 0xf) > 0xf;
+            c = regs[REG_A] + d8 > 0xff;
+            regs[REG_A] += d8;
+            z = regs[REG_A] == 0;
+            n = 0;
+            eff.cycles = 8;
+            break;
+        }
 
         case 0xc8: // RET Z
             if (z) {
@@ -901,11 +998,61 @@ void Cpu::disas(uint16_t addr, char* buf)
 void Cpu::execPrefix(SideEffects& eff)
 {
     uint8_t instr = mem(pc++);
+    // TODO: algorithmic decoding
     switch(instr) {
+        case 0x27: // SLA A
+            c = (regs[REG_A] & (1 << 7)) > 0; // check if bit 7 is set
+            regs[REG_A] <<= 1;
+            z = regs[REG_A] == 0;
+            eff.cycles = 8;
+            break;
+
         case 0x37: // SWAP A
             regs[REG_A] = ((regs[REG_A] & 0x0f) << 4) | ((regs[REG_A] & 0xf0) >> 4);
             z = regs[REG_A] == 0;
             n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
+        case 0x50: // BIT 2,B
+            z = (regs[REG_B] & (1 << 2)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x58: // BIT 3,B
+            z = (regs[REG_B] & (1 << 3)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x60: // BIT 4,B
+            z = (regs[REG_B] & (1 << 4)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x68: // BIT 5,B
+            z = (regs[REG_B] & (1 << 5)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x7e: // BIT 7,(HL)
+            z = (mem(hl()) & (1 << 7)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 16;
+            break;
+
+        case 0x7f: // BIT 7,A
+            z = (regs[REG_A] & (1 << 7)) == 0;
+            n = 0;
+            h = 1;
             eff.cycles = 8;
             break;
 

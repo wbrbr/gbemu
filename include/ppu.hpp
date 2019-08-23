@@ -9,6 +9,8 @@
 #define MODE_OAM_SEARCH 2
 #define MODE_PIXEL_TRANSFER 3
 
+struct Cpu;
+
 struct Ppu
 {
     Ppu();
@@ -27,5 +29,7 @@ struct Ppu
     int cycle_count;
 
     uint32_t framebuf[160*144];
+
+    Cpu* cpu;
 };
 #endif
