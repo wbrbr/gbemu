@@ -42,11 +42,11 @@ void Cpu::load(const char* path)
     assert(rom[0x147] == 0 && rom[0x148] == 0);
 }
 
-uint8_t Cpu::mem(uint16_t a)
+uint8_t Cpu::mem(uint16_t a, bool bypass)
 {
     if (a <= 0x7FFF) return rom[a];
     if (a <= 0x9FFF) {
-        if (!ppu->vramaccess()) return 0xFF;
+        if (!bypass && !ppu->vramaccess()) return 0xFF;
         return ppu->vram[a - 0x8000];
     }
     if (a <= 0xBFFF) {
@@ -56,7 +56,7 @@ uint8_t Cpu::mem(uint16_t a)
     if (a <= 0xDFFF) return wram[a - 0xC000];
     if (a <= 0xFDFF) return wram[a - 0xE000];
     if (a <= 0xFE9F) {
-        if (!ppu->oamaccess()) return 0xFF;
+        if (!bypass && !ppu->oamaccess()) return 0xFF;
         return ppu->oam[a - 0xFE00];
     }
     if (a <= 0xFEFF) {
@@ -122,7 +122,15 @@ void Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF42: ppu->scy = v; break;
             case 0xFF43: ppu->scx = v; break;
             case 0xFF45: ppu->lyc = v; break;
-            case 0xFF46: fprintf(stderr, "OAM DMA not implemented\n"); break;
+            case 0xFF46:
+                // bug: the transfer should take 160 cycles
+                for (uint8_t i = 0; i <= 0x9F; i++)
+                {
+                    uint16_t a = (v << 8) | i;
+                    // printf("%04x: %02x\n", a, mem(a));
+                    ppu->oam[i] = mem(a);
+                }
+                break;
             case 0xFF47: ppu->bgp = v; break;
             case 0xFF48: ppu->obp0 = v; break;
             case 0xFF49: ppu->obp1 = v; break;
@@ -475,9 +483,19 @@ SideEffects Cpu::cycle()
         }
 
         case 0x36: // LD (HL),d8
-            memw(mem(hl()), mem(pc++));
+            memw(hl(), mem(pc++));
             eff.cycles = 12;
             break;
+
+        case 0x3a: // LD A,(HL-)
+        {
+            regs[REG_A] = mem(hl());
+            uint16_t v = hl()-1;
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            eff.cycles = 8;
+            break;
+        }
 
         case 0x3c: // INC A
             h = (regs[REG_A] & 0xF) == 0xF;
@@ -524,9 +542,24 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x54: // LD D,H
+            regs[REG_D] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
         case 0x56: // LD D,(HL)
             regs[REG_D] = mem(hl());
             eff.cycles = 8;
+            break;
+
+        case 0x57: // LD D,A
+            regs[REG_D] = regs[REG_A];
+            eff.cycles = 4;
+            break;
+
+        case 0x5d: // LD E,L
+            regs[REG_E] = regs[REG_L];
+            eff.cycles = 4;
             break;
 
         case 0x5e: // LD E,(HL)
@@ -561,6 +594,16 @@ SideEffects Cpu::cycle()
 
         case 0x78: // LD A,B
             regs[REG_A] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x7a: // LD A,D
+            regs[REG_A] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
+        case 0x7b: // LD A,E
+            regs[REG_A] = regs[REG_E];
             eff.cycles = 4;
             break;
 
@@ -824,6 +867,13 @@ SideEffects Cpu::cycle()
             eff.cycles = 16;
             break;
 
+        case 0xf6: // OR d8
+            regs[REG_A] |= mem(pc++);
+            z = regs[REG_A] == 0;
+            h = n = c = 0;
+            eff.cycles = 8;
+            break;
+
         case 0xfb: // EI
             ime = true;
             eff.cycles = 4;
@@ -1054,6 +1104,11 @@ void Cpu::execPrefix(SideEffects& eff)
             n = 0;
             h = 1;
             eff.cycles = 8;
+            break;
+
+        case 0x86: // RES 0, (HL)
+            memw(hl(), mem(hl()) & ~1);
+            eff.cycles = 16;
             break;
 
         case 0x87: // RES 0,A

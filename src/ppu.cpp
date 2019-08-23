@@ -54,6 +54,24 @@ void Ppu::exec(uint8_t cycles)
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
                     uint8_t pal = lsb | (msb << 1);
+                    
+                    // TODO: 8x16, priority, obj-to-bg priority, flips,...
+                    for (int i = 0; i < 40; i++)
+                    {
+                        int sprite_y = (int)oam[4*i] - 16;
+                        int sp_yoff = ly - sprite_y;
+                        int sp_xoff =  x - (int)oam[4*i+1] + 8;
+                        if (sp_yoff >= 0 && sp_yoff < 8 && sp_xoff >= 0 && sp_xoff < 8) {
+                            tile_num = oam[4*i+2];
+                            b1 = vram[tile_num * 16 + 2*sp_yoff];
+                            b2 = vram[tile_num * 16 + 2*sp_yoff+1];
+                            lsb = (b1 >> (7 - sp_xoff)) & 1;
+                            msb = (b2 >> (7 - sp_xoff)) & 1;
+                            pal = lsb | (msb << 1);
+                            break;
+                        }
+                    }
+
                     framebuf[ly*160+x] = values[palette(pal)];
                 }
                 ly++;

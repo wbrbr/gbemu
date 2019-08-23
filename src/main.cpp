@@ -89,9 +89,9 @@ void drawMemWindow(Cpu& cpu)
     for (uint16_t i = mem_beg >> 4; i <= mem_end >> 4; i++)
     {
         sprintf(buf, "%04x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-                i * 16, cpu.mem(i*16), cpu.mem(i*16+1), cpu.mem(i*16+2), cpu.mem(i*16+3), cpu.mem(i*16+4), cpu.mem(i*16+5),
-                cpu.mem(i*16+6), cpu.mem(i*16+7), cpu.mem(i*16+8), cpu.mem(i*16+9), cpu.mem(i*16+10), cpu.mem(i*16+11),
-                cpu.mem(i*16+12), cpu.mem(i*16+13), cpu.mem(i*16+14), cpu.mem(i*16+15));
+                i * 16, cpu.mem(i*16, true), cpu.mem(i*16+1, true), cpu.mem(i*16+2, true), cpu.mem(i*16+3, true), cpu.mem(i*16+4, true), cpu.mem(i*16+5, true),
+                cpu.mem(i*16+6, true), cpu.mem(i*16+7, true), cpu.mem(i*16+8, true), cpu.mem(i*16+9, true), cpu.mem(i*16+10, true), cpu.mem(i*16+11, true),
+                cpu.mem(i*16+12, true), cpu.mem(i*16+13, true), cpu.mem(i*16+14, true), cpu.mem(i*16+15, true));
         ImGui::Text(buf);
     }
     ImGui::End();
@@ -182,6 +182,24 @@ void drawBGMapWindow(Ppu& ppu)
 
     ImGui::Image((void*)(intptr_t)bgmap_tex, size);
     ImGui::End();    
+}
+
+void drawOAMWindow(Ppu& ppu)
+{
+    ImGui::Begin("OAM");
+    char buf[100];
+    for (uint8_t i = 0; i < 40; i++)
+    {
+        uint8_t y = ppu.oam[i*4];
+        uint8_t x = ppu.oam[i*4+1];
+        uint8_t tile = ppu.oam[i*4+2];
+        uint8_t flags = ppu.oam[i*4+3];
+        if (x == 0 && y == 0 && tile == 0 && flags == 0) continue;
+        snprintf(buf, 100, "X = %02x\nY = %02x\nTile = %02x\nFlags = %02x\n", x, y, tile, flags);
+        ImGui::Text(buf);
+        ImGui::Separator();
+    }
+    ImGui::End();
 }
 
 int main(int argc, char** argv)
@@ -328,6 +346,7 @@ int main(int argc, char** argv)
             drawMemWindow(cpu);
             drawTilesWindow(ppu);
             drawBGMapWindow(ppu);
+            drawOAMWindow(ppu);
             // ImGui::ShowDemoWindow();
         }
 
