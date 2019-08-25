@@ -107,6 +107,7 @@ struct Cpu
     uint8_t ie, if_;
 
 private:
+    void daa();
     void execPrefix(SideEffects& eff);
 };
 #endif

@@ -360,8 +360,8 @@ SideEffects Cpu::cycle()
         {
             
             uint16_t v = bc()+1;
-            regs[REG_B] = v & 0xFF;
-            regs[REG_C] = v >> 8;
+            regs[REG_B] = v >> 8;
+            regs[REG_C] = v & 0xff;
             eff.cycles = 8;
             break;
         }
@@ -386,6 +386,25 @@ SideEffects Cpu::cycle()
             regs[REG_B] = mem(pc++);
             eff.cycles = 8;
             break;
+
+        case 0x07: // RLCA
+            c = (regs[REG_A] & (1 << 7)) > 0;
+            regs[REG_A] <<= 1;
+            regs[REG_A] |= c;
+            z = n = h = 0;
+            eff.cycles = 4;
+            break;
+
+            
+        case 0x08: // LD (a16),SP
+        {
+            uint16_t a16 = mem(pc) | (mem(pc+1) << 8);
+            memw(a16, sp & 0xff);
+            memw(a16+1, sp >> 8);
+            pc += 2;
+            eff.cycles = 20;
+            break;
+        }
 
         case 0x09: // ADD HL,BC
         {
@@ -434,6 +453,19 @@ SideEffects Cpu::cycle()
             regs[REG_C] = mem(pc++);
             eff.cycles = 8;
             break;
+
+        case 0x0f: // RRCA
+            c = regs[REG_A] & 1;
+            regs[REG_A] >>= 1;
+            z = h = n = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0x10: // STOP
+            pc++;
+            eff.cycles = 4;
+            break;
+            // TODO: wait for interrupt
 
         case 0x11: // LD DE,d16
             regs[REG_E] = mem(pc++);
@@ -577,9 +609,8 @@ SideEffects Cpu::cycle()
             break;
             
         case 0x27: // DAA
-            // TODO
+            daa();
             eff.cycles = 4;
-            h = 0;
             break;
 
         case 0x28: // JR Z,r8
@@ -796,8 +827,56 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x62: // LD H,D
+            regs[REG_H] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
+        case 0x63: // LD H,E
+            regs[REG_H] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
+        case 0x64: // LD H,H
+            eff.cycles = 4;
+            break;
+
+        case 0x65: // LD H,L
+            regs[REG_H] = regs[REG_L];
+            eff.cycles = 4;
+            break;
+
+        case 0x66: // LD H,(HL)
+            regs[REG_H] = mem(hl());
+            eff.cycles = 8;
+            break;
+
         case 0x67: // LD H,A
             regs[REG_H] = regs[REG_A];
+            eff.cycles = 4;
+            break;
+
+        case 0x68: // LD L,B
+            regs[REG_L] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x6a: // LD L,D
+            regs[REG_L] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
+        case 0x6b: // LD L,E
+            regs[REG_L] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
+        case 0x6c: // LD L,H
+            regs[REG_L] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
+        case 0x6d: // LD L,L
             eff.cycles = 4;
             break;
 
@@ -889,7 +968,55 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
-        case 0xa1: // AND B
+        case 0x9c: // SBC A,H
+        {
+            uint8_t v = regs[REG_H] + c;
+            c = v > regs[REG_A];
+            h = (v & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= v;
+            z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+        }
+        
+        case 0x9d: // SBC A,L
+        {
+            uint8_t v = regs[REG_L] + c;
+            c = v > regs[REG_A];
+            h = (v & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= v;
+            z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+        }
+
+        case 0x9e: // SBC A,(HL)
+        {
+            uint8_t v = mem(hl()) + c;
+            c = v > regs[REG_A];
+            h = (v & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= v;
+            z = regs[REG_A] == 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0x9f: // SBC A,A
+        {
+            uint8_t v = regs[REG_A] + c;
+            c = v > regs[REG_A];
+            h = (v & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= v;
+            z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+        }
+
+        case 0xa0: // AND
             regs[REG_A] &= regs[REG_B];
             z = regs[REG_A] == 0;
             h = 1;
@@ -897,10 +1024,65 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0xa1: // AND C
+            regs[REG_A] &= regs[REG_C];
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa2: // AND D
+            regs[REG_A] &= regs[REG_D];
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa3: // AND E
+            regs[REG_A] &= regs[REG_E];
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa4: // AND H
+            regs[REG_A] &= regs[REG_H];
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa5: // AND L
+            regs[REG_A] &= regs[REG_L];
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa6: // AND (HL)
+            regs[REG_A] &= mem(hl());
+            z = regs[REG_A] == 0;
+            h = 1;
+            n = c = 0;
+            eff.cycles = 8;
+            break;
+
         case 0xa7: // AND A
             n = c = 0;
             h = 1;
             z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xa8: // XOR B
+            regs[REG_A] ^= regs[REG_C];
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
             eff.cycles = 4;
             break;
 
@@ -961,6 +1143,17 @@ SideEffects Cpu::cycle()
             h = (regs[REG_E] & 0xF) > (regs[REG_A] & 0xF);
             eff.cycles = 4;
             break;
+
+        case 0xbe: // CP (HL)
+        {
+            uint8_t v = mem(hl());
+            c = v > regs[REG_A];
+            z = v == regs[REG_A];
+            n = 1;
+            h = (v & 0xF) > (regs[REG_A] & 0xF);
+            eff.cycles = 8;
+            break;
+        }
 
 
         case 0xc0: // RET NZ
@@ -1231,6 +1424,11 @@ SideEffects Cpu::cycle()
             break;
         }
 
+        case 0xf9: // LD SP,HL
+            sp = hl();
+            eff.cycles = 8;
+            break;
+
         default:
             fprintf(stderr, "Unknown instruction %02x at address %04x\n", instr, pc-1);
             exit(1);
@@ -1487,7 +1685,7 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
-        case 0x86: // RES 0, (HL)
+        case 0x86: // RES 0,(HL)
             memw(hl(), mem(hl()) & ~1);
             eff.cycles = 16;
             break;
@@ -1497,10 +1695,55 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0xbe: // RES 7,(HL)
+            memw(hl(), mem(hl()) & ~(1<<7));
+            eff.cycles = 16;
+            break;
+
+        case 0xfe: // SET 7,(HL)
+            memw(hl(), mem(hl()) | (1 << 7));
+            eff.cycles = 16;
+            break;
+
+
         default:
             fprintf(stderr, "Unknown prefix instruction CB %02x (pc = %02x)\n", instr, pc-2);
             exit(1);
     }
+}
+
+
+// Stolen from SameBoy
+void Cpu::daa()
+{
+
+    int16_t result = regs[REG_A];
+
+    if (n) {
+        if (h) {
+            result = (result - 0x06) & 0xFF;
+        }
+
+        if (c) {
+            result -= 0x60;
+        }
+    }
+    else {
+        if (h || (result & 0x0F) > 0x09) {
+            result += 0x06;
+        }
+
+        if (c || result > 0x9F) {
+            result += 0x60;
+        }
+    }
+
+    if ((result & 0x100) == 0x100) {
+        c = 1;
+    }
+    h = 0;
+    regs[REG_A] = result & 0xff;
+    z = regs[REG_A] == 0;
 }
 
 SerialController::SerialController(Cpu* cpu)
