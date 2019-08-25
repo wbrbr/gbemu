@@ -272,9 +272,11 @@ int main(int argc, char** argv)
     ExecMode mode = MODE_STEP;
 
     bool go_step = false;
+    bool go_step_back = false;
     bool running = true;
 
     const int CYCLES_PER_FRAME = 69905; // 4194304 / 60;
+    uint64_t instr_num = 0;
 
     while (running) {
 
@@ -284,6 +286,10 @@ int main(int argc, char** argv)
             }
             if (mode == MODE_STEP && e.type == SDL_KEYDOWN) {
                 switch(e.key.keysym.scancode) {
+                    case SDL_SCANCODE_F6:
+                        go_step_back = true;
+                        break;
+
                     case SDL_SCANCODE_F7:
                         go_step = true;
                         break;
@@ -319,12 +325,27 @@ int main(int argc, char** argv)
                 SideEffects eff = cpu.cycle();
                 ppu.exec(eff.cycles);
                 go_step = false;
+                instr_num++;
+            } else if (go_step_back) {
+                uint64_t target = instr_num;
+                cpu.reset();
+                ppu.reset();
+                instr_num = 0;
+                while (instr_num + 1 != target)
+                {
+                    SideEffects eff = cpu.cycle();
+                    ppu.exec(eff.cycles);
+                    instr_num++;
+                }
+                go_step_back = false;
             }
         } else {
             for (int i = 0; i < CYCLES_PER_FRAME;)
             {
                 SideEffects eff = cpu.cycle();
                 ppu.exec(eff.cycles);
+                instr_num++;
+                if (instr_num == 0) puts("overflow");
                 i += eff.cycles;
                 if (mode == MODE_RUNBREAK && cpu.pc == bp) {
                     mode = MODE_STEP;

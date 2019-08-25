@@ -5,10 +5,16 @@
 
 Ppu::Ppu()
 {
+    cpu = nullptr;
+    reset();
+}
+
+void Ppu::reset()
+{
     lcdc = 0x91;
     stat = 0x85;
     scx = scy = ly = lyc = dma = bgp = obp0 = obp1 = wx = wy = 0;
-    cpu = nullptr;
+    cycle_count = 0;
     memset(vram, 0, sizeof(vram));
     memset(oam, 0, sizeof(oam));
     memset(framebuf, 0, sizeof(framebuf));
@@ -38,7 +44,7 @@ void Ppu::exec(uint8_t cycles)
         case MODE_HBLANK:
             if (cycle_count >= 204) {
                 // TODO: renderLine()
-                uint32_t values[] = { 0xff201808, 0xff566834, 0xff70c088, 0xffd0f8e0 };
+                uint32_t values[] = { 0xffd0f8e0, 0xff70c088, 0xff566834, 0xff201808 };
 
                 for (int x = 0; x < 160; x++)
                 {
@@ -53,7 +59,7 @@ void Ppu::exec(uint8_t cycles)
                     uint8_t b2 = vram[tile_num * 16 + 2*y_off+1];
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
-                    uint8_t pal = lsb | (msb << 1);
+                    uint8_t col = palette(bgp, lsb | (msb << 1));
                     
                     // TODO: 8x16, priority, obj-to-bg priority, flips,...
                     for (int i = 0; i < 40; i++)
@@ -67,19 +73,18 @@ void Ppu::exec(uint8_t cycles)
                             b2 = vram[tile_num * 16 + 2*sp_yoff+1];
                             lsb = (b1 >> (7 - sp_xoff)) & 1;
                             msb = (b2 >> (7 - sp_xoff)) & 1;
-                            pal = lsb | (msb << 1);
+                            col = palette((oam[4*i+3] >> 4) & 1 ? obp1 : obp0, lsb | (msb << 1));
                             break;
                         }
                     }
 
-                    framebuf[ly*160+x] = values[palette(pal)];
+                    framebuf[ly*160+x] = values[col];
                 }
                 ly++;
                 if (ly == 144) {
                     stat &= ~(0b11);
                     stat |= MODE_VBLANK;
                     cpu->if_ |= 1;
-                    puts("vblank");
                 } else {
                     stat &= ~(0b11);
                     stat |= MODE_OAM_SEARCH;
@@ -112,8 +117,8 @@ bool Ppu::oamaccess()
     return ((lcdc & (1 << 7)) == 0) || ((stat & 3) < 2);
 }
 
-uint8_t Ppu::palette(uint8_t i)
+uint8_t Ppu::palette(uint8_t p, uint8_t i)
 {
     assert(i < 4);
-    return (bgp >> (2*i)) & 3;
+    return (p >> (2*i)) & 3;
 }

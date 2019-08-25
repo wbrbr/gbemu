@@ -5,18 +5,129 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 
-Cpu::Cpu()
+Mbc::~Mbc() {};
+
+Mbc0::Mbc0()
+{
+    memset(rom, 0, sizeof(rom));
+    memset(ram, 0, sizeof(ram));
+}
+
+void Mbc0::load(uint8_t* cartridge, unsigned int size)
+{
+    memcpy(rom, cartridge, size);
+}
+
+void Mbc0::reset()
+{
+    memset(ram, 0, sizeof(ram));
+}
+
+uint8_t Mbc0::mem(uint16_t a)
+{
+    if (a <= 0x7fff) return rom[a];
+    if (a >= 0xa000 && a <= 0xbfff) return ram[a - 0xa000];
+    fprintf(stderr, "Wrong MBC0 read: %04x\n", a);
+    return 0xff;
+}
+
+void Mbc0::memw(uint16_t a, uint8_t v)
+{
+    if (a >= 0xa000 && a <= 0xbfff) ram[a - 0xa000] = v;
+}
+
+Mbc1::Mbc1()
+{
+    rom = (uint8_t*)calloc(1, 0x200000);
+    reset();
+}
+
+void Mbc1::load(uint8_t* cartridge, unsigned int size)
+{
+    memcpy(rom, cartridge, size);
+}
+
+void Mbc1::reset()
+{
+    memset(ram, 0, sizeof(ram));
+    ram_enabled = false;
+    rom_bank = 1;
+    ram_bank = 0;
+    bank_mode = 0;
+}
+
+uint8_t Mbc1::mem(uint16_t a)
+{
+    if (a <= 0x3fff) return rom[a];
+    if (a <= 0x7fff) {
+        return rom[0x4000*rom_bank + a-0x4000];
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        return ram[0x2000*ram_bank + a - 0xa000];
+    }
+    return 0xff;
+}
+
+void Mbc1::memw(uint16_t a, uint8_t v)
+{
+    if (a <= 0x1fff) {
+        ram_enabled = (v & 0xf) == 0xA;
+        return;
+    }
+    if (a >= 0x2000 && a <= 0x3fff) {
+        uint8_t low = v & 0b00011111;
+        if (low == 0) low = 1;
+        rom_bank &= 0b11100000;
+        rom_bank |= low;
+        return;
+    }
+    if (a >= 0x4000 && a <= 0x5fff) {
+        puts("yay");
+        if (bank_mode) {
+            ram_bank = v & 3;
+        } else {
+            uint8_t hi = v & 3;
+            rom_bank &= 0b00011111;
+            rom_bank |= (hi << 5);
+        }
+        return;
+    }
+    if (a >= 0x6000 && a <= 0x7fff) {
+        bank_mode = v & 1;
+        return;
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        ram[rom_bank*0x2000 + a - 0xa000] = v;
+        return;
+    }
+}
+
+
+Cpu::Cpu(): serial(this)
 {
     ppu = nullptr;
+    mbc = nullptr;
+    reset();
+}
+
+void Cpu::reset()
+{
     pc = 0x100;
     sp = 0xFFFE;
     ie = 0;
     if_ = 0;
     ime = true;
-    memset(rom, 0, sizeof(rom));
+    z = h = n = c = 0;
     memset(wram, 0, sizeof(wram));
     memset(hram, 0, sizeof(hram));
     memset(regs, 0, sizeof(regs));
+    serial = SerialController(this);
+    if (mbc) mbc->reset();
+}
+
+Cpu::~Cpu()
+{
+    delete mbc;
 }
 
 void Cpu::load(const char* path)
@@ -26,33 +137,44 @@ void Cpu::load(const char* path)
     size_t size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    assert(size <= 0x8000); // for now
-    if (fread(rom, 1, size, fp) != size) {
+    uint8_t* cartridge = new uint8_t[size];
+    if (fread(cartridge, 1, size, fp) != size) {
         perror("fread: ");
         exit(1);
     }
 
-    assert(rom[0x104] == 0xCE && rom[0x105] == 0xED);
+    assert(cartridge[0x104] == 0xCE && cartridge[0x105] == 0xED);
     char title[17];
-    memcpy(title, rom + 0x134, 16);
+    memcpy(title, cartridge + 0x134, 16);
     title[16] = 0;
 
     puts(title);
 
-    assert(rom[0x147] == 0 && rom[0x148] == 0);
+    switch(cartridge[0x147])
+    {
+        case 0x00:
+            mbc = new Mbc0();
+            break;
+
+        case 0x01:
+            mbc = new Mbc1();
+            break;
+
+        default:
+            fprintf(stderr, "Unsupported MBC\n");
+            exit(1);
+    }
+    mbc->load(cartridge, size);
 }
 
 uint8_t Cpu::mem(uint16_t a, bool bypass)
 {
-    if (a <= 0x7FFF) return rom[a];
+    if (a <= 0x7FFF) return mbc->mem(a);
     if (a <= 0x9FFF) {
         if (!bypass && !ppu->vramaccess()) return 0xFF;
         return ppu->vram[a - 0x8000];
     }
-    if (a <= 0xBFFF) {
-        fprintf(stderr, "ERAM not supported\n");
-        return 0xFF;
-    }
+    if (a <= 0xBFFF) return mbc->mem(a);
     if (a <= 0xDFFF) return wram[a - 0xC000];
     if (a <= 0xFDFF) return wram[a - 0xE000];
     if (a <= 0xFE9F) {
@@ -65,6 +187,8 @@ uint8_t Cpu::mem(uint16_t a, bool bypass)
     }
     if (a <= 0xFF7F) {
         switch(a) {
+            case 0xFF01: return serial.sb;
+            case 0xFF02: return serial.sc;
             case 0xFF0F: return if_;
             case 0xFF40: return ppu->lcdc;
             case 0xFF41: return ppu->stat;
@@ -116,6 +240,8 @@ void Cpu::memw(uint16_t a, uint8_t v)
 
     if (a <= 0xFF7F) {
         switch(a) {
+            case 0xFF01: serial.sb = v; puts("serial!!");break;
+            case 0xFF02: serial.sc = v; break;
             case 0xFF0F: if_ = v; break;
             case 0xFF40: ppu->lcdc = v; break;
             case 0xFF41: assert((v & 0xF) == 0); ppu->stat = v; break; // TODO: only change top bits
@@ -138,8 +264,8 @@ void Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF4B: ppu->wx = v; break;
             default:
                 fprintf(stderr, "Unsupported I/O write: %04x (pc = %04x)\n", a, pc);
-                return;
         }
+        return;
     }
 
     if (a <= 0xFFFE) {
@@ -329,6 +455,15 @@ SideEffects Cpu::cycle()
             break;            
         }
 
+        case 0x14: // INC D
+            h = (regs[REG_D] & 0xf) == 0xf;
+            regs[REG_D]++;
+            z = regs[REG_D] == 0;
+            n = 0;
+            eff.cycles = 4;
+            break;
+            
+
         case 0x16: // LD D,d8
             regs[REG_D] = mem(pc++);
             eff.cycles = 8;
@@ -363,6 +498,26 @@ SideEffects Cpu::cycle()
             n = 0;
             eff.cycles = 4;
             break;
+
+        case 0x1d: // DEC E
+            n = 1;
+            h = (regs[REG_E] & 0xF) == 0;
+            regs[REG_E]--;
+            z = regs[REG_E] == 0;
+            eff.cycles = 4;
+            break;
+
+
+        case 0x1f: // RRA
+        {
+            uint8_t tmp = c;
+            c = regs[REG_A] & 1;
+            regs[REG_A] >>= 1;
+            regs[REG_A] |= (tmp << 7);
+            z = n = h = 0;
+            eff.cycles = 8;
+            break;
+        }
 
         case 0x20: // JR NZ,r8
             if (!z) {
@@ -399,6 +554,34 @@ SideEffects Cpu::cycle()
             break;
         }
 
+        case 0x24: // INC H
+            h = (regs[REG_H] & 0xF) == 0xF;
+            regs[REG_H]++;
+            z = regs[REG_H] == 0;
+            n = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0x25: // DEC H
+            z = regs[REG_H] == 1;
+            h = (regs[REG_H] & 0xF) == 0;
+            n = 1;
+            regs[REG_H]--;
+            eff.cycles = 4;
+            break;
+
+
+        case 0x26: // LD H,d8
+            regs[REG_H] = mem(pc++);
+            eff.cycles = 8;
+            break;
+            
+        case 0x27: // DAA
+            // TODO
+            eff.cycles = 4;
+            h = 0;
+            break;
+
         case 0x28: // JR Z,r8
             if (z) {
                 pc += (int8_t)mem(pc++);
@@ -408,6 +591,18 @@ SideEffects Cpu::cycle()
                 eff.cycles = 8;
             }
             break;
+
+        case 0x29: // ADD HL,HL
+        {
+            c = hl() + hl() > 0xffff;
+            h = (hl() & 0xfff) + (hl() & 0xfff) > 0xfff;
+            uint16_t v = hl() + hl();
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            n = 0;
+            eff.cycles = 8;
+            break;
+        }
 
         case 0x2a: // LD A,(HL+)
         {
@@ -442,6 +637,15 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x30: // JR NC,r8
+            if (!c) {
+                pc += (int8_t)mem(pc++);
+                eff.cycles = 12;
+            } else {
+                pc++;
+                eff.cycles = 8;
+            }
+            break;
 
         case 0x31: // LD SP,d16
             sp = mem(pc) | (mem(pc+1) << 8);
@@ -485,6 +689,16 @@ SideEffects Cpu::cycle()
         case 0x36: // LD (HL),d8
             memw(hl(), mem(pc++));
             eff.cycles = 12;
+            break;
+
+        case 0x38: // JR C,r8
+            if (c) {
+                pc += (int8_t)mem(pc++);
+                eff.cycles = 12;
+            } else {
+                pc++;
+                eff.cycles = 8;
+            }
             break;
 
         case 0x3a: // LD A,(HL-)
@@ -557,6 +771,11 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x5a: // LD E,D
+            regs[REG_E] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
         case 0x5d: // LD E,L
             regs[REG_E] = regs[REG_L];
             eff.cycles = 4;
@@ -577,6 +796,16 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x67: // LD H,A
+            regs[REG_H] = regs[REG_A];
+            eff.cycles = 4;
+            break;
+
+        case 0x6e: // LD L,(HL)
+            regs[REG_L] = mem(hl());
+            eff.cycles = 8;
+            break;
+
         case 0x6f: // LD L,A
             regs[REG_L] = regs[REG_A];
             eff.cycles = 4;
@@ -587,6 +816,21 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x70: // LD (HL),B
+            memw(hl(), regs[REG_B]);
+            eff.cycles = 8;
+            break;
+
+        case 0x71: // LD (HL),C
+            memw(hl(), regs[REG_C]);
+            eff.cycles = 8;
+            break;
+
+        case 0x72: // LD (HL),D
+            memw(hl(), regs[REG_D]);
+            eff.cycles = 8;
+            break;
+
         case 0x77: // LD (HL),A
             memw(hl(), regs[REG_A]);
             eff.cycles = 8;
@@ -594,6 +838,11 @@ SideEffects Cpu::cycle()
 
         case 0x78: // LD A,B
             regs[REG_A] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x79: // LD A,C
+            regs[REG_A] = regs[REG_C];
             eff.cycles = 4;
             break;
 
@@ -614,11 +863,6 @@ SideEffects Cpu::cycle()
 
         case 0x7d: // LD A,L
             regs[REG_A] = regs[REG_L];
-            eff.cycles = 4;
-            break;
-
-        case 0x79: // LD A,C
-            regs[REG_A] = regs[REG_C];
             eff.cycles = 4;
             break;
 
@@ -667,6 +911,13 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0xae: // XOR (HL)
+            regs[REG_A] ^= mem(hl());
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
         case 0xaf: // XOR A
             regs[REG_A] = 0;
             z = 1;
@@ -689,6 +940,28 @@ SideEffects Cpu::cycle()
             z = regs[REG_A] == 0;
             eff.cycles = 4;
             break;
+
+        case 0xb6: // OR (HL)
+            regs[REG_A] |= mem(hl());
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
+        case 0xb7: // OR A
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
+            eff.cycles = 4;
+            break;
+
+        case 0xbb: // CP E
+            c = regs[REG_E] > regs[REG_A];
+            z = regs[REG_E] == regs[REG_A];
+            n = 1;
+            h = (regs[REG_E] & 0xF) > (regs[REG_A] & 0xF);
+            eff.cycles = 4;
+            break;
+
 
         case 0xc0: // RET NZ
             if (!z) {
@@ -718,6 +991,17 @@ SideEffects Cpu::cycle()
         case 0xc3: // JP a16
             pc = mem(pc) | (mem(pc+1) << 8);
             eff.cycles = 16;
+            break;
+
+        case 0xc4: // CALL NZ,a16
+            if (!z) {
+                push(pc+2);
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 24;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
             break;
 
         case 0xc5: // PUSH BC
@@ -770,6 +1054,27 @@ SideEffects Cpu::cycle()
             eff.cycles = 16;
             break;
 
+        case 0xce: // ADC A,d8
+        {
+            uint8_t v = mem(pc++) + c;
+            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
+            c = regs[REG_A] + v > 0xff;
+            regs[REG_A] += v;
+            z = regs[REG_A] == 0;
+            n = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0xd0: // RET NC
+            if (!c) {
+                pc = pop16();
+                eff.cycles = 20;
+            } else {
+                eff.cycles = 8;
+            }
+            break;
+
         case 0xd1: // POP DE
             regs[REG_E] = pop8();
             regs[REG_D] = pop8();
@@ -779,6 +1084,28 @@ SideEffects Cpu::cycle()
         case 0xd5: // PUSH DE
             push(de());
             eff.cycles = 16;
+            break;
+
+        case 0xd6: // SUB d8
+        {
+            uint8_t d8 = mem(pc++);
+            c = d8 > regs[REG_A];
+            h = (d8 & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= d8;
+            z = regs[REG_A] == 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0xd8: // RET C
+            if (c) {
+                pc = pop16();
+                eff.cycles = 20;
+                break;
+            } else {
+                eff.cycles = 8;
+            }
             break;
 
         case 0xd9: // RETI
@@ -826,6 +1153,13 @@ SideEffects Cpu::cycle()
         case 0xe9: // JP HL
             pc = hl();
             eff.cycles = 4;
+            break;
+
+        case 0xee: // XOR d8
+            regs[REG_A] ^= mem(pc++);
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
+            eff.cycles = 8;
             break;
 
         case 0xef: // RST $28
@@ -903,6 +1237,8 @@ SideEffects Cpu::cycle()
     }
 
     assert(eff.cycles > 0);
+
+    serial.exec(eff.cycles);
     return eff;
 }
 
@@ -1050,6 +1386,43 @@ void Cpu::execPrefix(SideEffects& eff)
     uint8_t instr = mem(pc++);
     // TODO: algorithmic decoding
     switch(instr) {
+
+        case 0x19: // RR C
+        {
+            uint8_t tmp = c;
+            c = regs[REG_C] & 1;
+            regs[REG_C] >>= 1;
+            regs[REG_C] |= (tmp << 7);
+            z = regs[REG_C] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0x1a: // RR D
+        {
+            uint8_t tmp = c;
+            c = regs[REG_D] & 1;
+            regs[REG_D] >>= 1;
+            regs[REG_D] |= (tmp << 7);
+            z = regs[REG_D] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0x1f: // RR A
+        {
+            uint8_t tmp = c;
+            c = regs[REG_C] & 1;
+            regs[REG_C] >>= 1;
+            regs[REG_C] |= (tmp << 7);
+            z = regs[REG_C] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+        }
+
         case 0x27: // SLA A
             c = (regs[REG_A] & (1 << 7)) > 0; // check if bit 7 is set
             regs[REG_A] <<= 1;
@@ -1061,6 +1434,14 @@ void Cpu::execPrefix(SideEffects& eff)
             regs[REG_A] = ((regs[REG_A] & 0x0f) << 4) | ((regs[REG_A] & 0xf0) >> 4);
             z = regs[REG_A] == 0;
             n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
+        case 0x38: // SRL B
+            c = regs[REG_B] & 1;
+            regs[REG_B] >>= 1;
+            z = regs[REG_B] == 0;
+            n = h = 0;
             eff.cycles = 8;
             break;
 
@@ -1121,3 +1502,35 @@ void Cpu::execPrefix(SideEffects& eff)
             exit(1);
     }
 }
+
+SerialController::SerialController(Cpu* cpu)
+{
+    this->cpu = cpu;
+    remaining = 0;
+    remaining_bits = 0;
+    sb = 0;
+    sc = 0;
+}
+
+void SerialController::exec(uint8_t cycles)
+{
+    // TODO: external clock, clock speeds
+    if ((sc & (1 << 7)) > 0) {
+        if (remaining_bits == 0) { // begin transfer
+            remaining_bits = 8;
+        }
+        remaining -= cycles;
+        if (remaining <= 0) { // send a bit
+            remaining = 512;
+            remaining_bits--;
+
+            sb <<= 1; // receive a 0
+
+            if (remaining_bits == 0) { // end transfer
+                sc &= ~(1 << 7);
+                cpu->if_ |= (1 << 3);
+            }
+        }
+    }
+}
+

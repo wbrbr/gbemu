@@ -19,10 +19,64 @@ enum Registers {
     REG_H
 };
 
+struct Mbc
+{
+    virtual ~Mbc();
+    virtual void load(uint8_t* cartridge, unsigned int size) = 0;
+    virtual void reset() = 0;
+    virtual uint8_t mem(uint16_t a) = 0;
+    virtual void memw(uint16_t a, uint8_t v) = 0;
+};
+
+struct Mbc0: public Mbc
+{
+    Mbc0();
+    void load(uint8_t* cartridge, unsigned int size);
+    void reset();
+    uint8_t mem(uint16_t a);
+    void memw(uint16_t a, uint8_t v);
+
+    uint8_t rom[0x8000];
+    uint8_t ram[0x2000];
+};
+
+struct Mbc1: public Mbc
+{
+    Mbc1();
+    void load(uint8_t* cartridge, unsigned int size);
+    void reset();
+    uint8_t mem(uint16_t a);
+    void memw(uint16_t a, uint8_t v);
+
+    bool ram_enabled;
+    uint8_t rom_bank;
+    uint8_t ram_bank;
+    uint8_t bank_mode;
+
+    uint8_t* rom;
+    uint8_t ram[0x8000];
+};
+
+struct Cpu;
+
+struct SerialController
+{
+    SerialController(Cpu* cpu);
+    void exec(uint8_t cycles);
+
+    Cpu* cpu;
+    int remaining;
+    int remaining_bits;
+
+    uint8_t sb, sc;
+};
+
 struct Cpu
 {
     Cpu();
+    ~Cpu();
     void load(const char* path);
+    void reset();
     SideEffects cycle();
     void disas(uint16_t addr, char* buf);
 
@@ -37,9 +91,11 @@ struct Cpu
     uint8_t pop8();
     uint16_t pop16();
 
+    SerialController serial;
     Ppu* ppu;
+    Mbc* mbc;
 
-    uint8_t rom[0x8000];
+    // uint8_t rom[0x8000];
     uint8_t wram[0x2000];
     uint8_t hram[128];
     // uint8_t memory[0xffff];
