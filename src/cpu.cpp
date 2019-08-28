@@ -187,6 +187,7 @@ uint8_t Cpu::mem(uint16_t a, bool bypass)
     }
     if (a <= 0xFF7F) {
         switch(a) {
+            case 0xFF00: return joypad.joyp();
             case 0xFF01: return serial.sb;
             case 0xFF02: return serial.sc;
             case 0xFF0F: return if_;
@@ -220,7 +221,7 @@ void Cpu::memw(uint16_t a, uint8_t v)
         return;
     }
     if (a <= 0xBFFF) {
-        fprintf(stderr, "ERAM not supported\n");
+        mbc->memw(a, v);
         return;
     }
     if (a <= 0xDFFF) {
@@ -240,7 +241,8 @@ void Cpu::memw(uint16_t a, uint8_t v)
 
     if (a <= 0xFF7F) {
         switch(a) {
-            case 0xFF01: serial.sb = v; puts("serial!!");break;
+            case 0xFF00: joypad.select_buttons = (v & (1 << 5)) == 0; break;
+            case 0xFF01: serial.sb = v; puts("serial!!"); break;
             case 0xFF02: serial.sc = v; break;
             case 0xFF0F: if_ = v; break;
             case 0xFF40: ppu->lcdc = v; break;
@@ -358,7 +360,6 @@ SideEffects Cpu::cycle()
 
         case 0x03: // INC BC
         {
-            
             uint16_t v = bc()+1;
             regs[REG_B] = v >> 8;
             regs[REG_C] = v & 0xff;
@@ -523,6 +524,15 @@ SideEffects Cpu::cycle()
             break;
         }
 
+        case 0x1b: // DEC DE
+        {
+            uint16_t v = de() - 1;
+            regs[REG_E] = v & 0xff;
+            regs[REG_D] = v >> 8;
+            eff.cycles = 4;
+            break;
+        }
+
         case 0x1c: // INC E
             h = (regs[REG_E] & 0xf) == 0xf;
             regs[REG_E]++;
@@ -645,6 +655,15 @@ SideEffects Cpu::cycle()
             break;
         }
 
+        case 0x2b: // DEC HL
+        {
+            uint16_t v = hl()-1;
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            eff.cycles = 8;
+            break;
+        }
+
         case 0x2c: // INC L
             h = (regs[REG_L] & 0xF) == 0xF;
             regs[REG_L]++;
@@ -659,6 +678,11 @@ SideEffects Cpu::cycle()
             regs[REG_L]--;
             z = regs[REG_L] == 0;
             eff.cycles = 4;
+            break;
+
+        case 0x2e: // LD L,d8
+            regs[REG_L] = mem(pc++);
+            eff.cycles = 8;
             break;
 
         case 0x2f: // CPL
@@ -694,6 +718,11 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
         }
+
+        case 0x33: // INC SP
+            sp++; 
+            eff.cycles = 8;
+            break;
 
         case 0x34: // INC (HL)
         {
@@ -732,6 +761,19 @@ SideEffects Cpu::cycle()
             }
             break;
 
+        case 0x39: // ADD HL,SP
+        {
+            c = hl() + sp > 0xffff;
+            h = (hl() & 0xfff) + (sp & 0xfff) > 0xfff;
+            uint16_t v = hl() + sp;
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            n = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+
         case 0x3a: // LD A,(HL-)
         {
             regs[REG_A] = mem(hl());
@@ -741,6 +783,11 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
         }
+
+        case 0x3b: // DEC SP
+            sp--;
+            eff.cycles = 8;
+            break;
 
         case 0x3c: // INC A
             h = (regs[REG_A] & 0xF) == 0xF;
@@ -910,6 +957,11 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
 
+        case 0x73: // LD (HL),E
+            memw(hl(), regs[REG_E]);
+            eff.cycles = 8;
+            break;
+
         case 0x77: // LD (HL),A
             memw(hl(), regs[REG_A]);
             eff.cycles = 8;
@@ -967,6 +1019,16 @@ SideEffects Cpu::cycle()
             n = 0;
             eff.cycles = 4;
             break;
+
+        case 0x91: // SUB C
+            c = regs[REG_C] > regs[REG_A];
+            h = (regs[REG_C] & 0xf) > (regs[REG_A] & 0xf);
+            n = 1;
+            regs[REG_A] -= regs[REG_C];
+            z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+
 
         case 0x9c: // SBC A,H
         {
@@ -1093,6 +1155,13 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0xad: // XOR L
+            regs[REG_A] ^= regs[REG_C];
+            z = regs[REG_A] == 0;
+            n = h = c = 0;
+            eff.cycles = 4;
+            break;
+
         case 0xae: // XOR (HL)
             regs[REG_A] ^= mem(hl());
             z = regs[REG_A] == 0;
@@ -1123,6 +1192,13 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0xb2: // OR D
+            regs[REG_A] = regs[REG_A] | regs[REG_D];
+            n = c = h = 0;
+            z = regs[REG_A] == 0;
+            eff.cycles = 4;
+            break;
+
         case 0xb6: // OR (HL)
             regs[REG_A] |= mem(hl());
             z = regs[REG_A] == 0;
@@ -1141,6 +1217,14 @@ SideEffects Cpu::cycle()
             z = regs[REG_E] == regs[REG_A];
             n = 1;
             h = (regs[REG_E] & 0xF) > (regs[REG_A] & 0xF);
+            eff.cycles = 4;
+            break;
+
+        case 0xbc: // CP H
+            c = regs[REG_H] > regs[REG_A];
+            z = regs[REG_H] == regs[REG_A];
+            n = 1;
+            h = (regs[REG_H] & 0xF) > (regs[REG_A] & 0xF);
             eff.cycles = 4;
             break;
 
@@ -1343,6 +1427,17 @@ SideEffects Cpu::cycle()
             eff.cycles = 16;
             break;
 
+        case 0xe8: // ADD SP,r8
+        {
+            int16_t r8 = (int8_t)mem(pc++);
+            c = (sp & 0xff) + (r8 & 0xff) > 0xff;
+            h = (sp & 0xf) + (r8 & 0xf) > 0xf;
+            z = n = 0;
+            sp += r8;
+            eff.cycles = 16;
+            break;
+        }
+
         case 0xe9: // JP HL
             pc = hl();
             eff.cycles = 4;
@@ -1400,6 +1495,19 @@ SideEffects Cpu::cycle()
             h = n = c = 0;
             eff.cycles = 8;
             break;
+
+        case 0xf8: // LD HL,SP+r8
+        {
+            int16_t r8 = (int8_t)mem(pc++);
+            c = (sp & 0xff) + (r8 & 0xff) > 0xff;
+            h = (sp & 0xf) + (r8 & 0xf) > 0xf;
+            z = n = 0;
+            uint16_t v = sp+r8;
+            regs[REG_L] = v & 0xff;
+            regs[REG_H] = v >> 8;
+            eff.cycles = 12;
+            break;
+        }
 
         case 0xfb: // EI
             ime = true;
@@ -1585,6 +1693,14 @@ void Cpu::execPrefix(SideEffects& eff)
     // TODO: algorithmic decoding
     switch(instr) {
 
+        case 0x08: // RRC B
+            c = regs[REG_B] & 1;
+            regs[REG_B] >>= 1;
+            z = regs[REG_B] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+
         case 0x19: // RR C
         {
             uint8_t tmp = c;
@@ -1609,6 +1725,29 @@ void Cpu::execPrefix(SideEffects& eff)
             break;
         }
 
+        case 0x1b: // RR E
+        {
+            uint8_t tmp = c;
+            c = regs[REG_E] & 1;
+            regs[REG_E] >>= 1;
+            regs[REG_E] |= (tmp << 7);
+            z = regs[REG_E] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+        }
+
+        case 0x0e: // RRC (HL)
+        {
+            c = mem(hl()) & 1;
+            uint8_t v = mem(hl()) >> 1;
+            memw(hl(), v);
+            z = v == 0;
+            n = h = 0;
+            eff.cycles = 16;
+            break;
+        }
+
         case 0x1f: // RR A
         {
             uint8_t tmp = c;
@@ -1628,6 +1767,20 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x30: // SWAP B
+            regs[REG_B] = ((regs[REG_B] & 0x0f) << 4) | ((regs[REG_B] & 0xf0) >> 4);
+            z = regs[REG_B] == 0;
+            n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
+        case 0x33: // SWAP E
+            regs[REG_E] = ((regs[REG_E] & 0x0f) << 4) | ((regs[REG_E] & 0xf0) >> 4);
+            z = regs[REG_E] == 0;
+            n = h = c = 0;
+            eff.cycles = 8;
+            break;
+
         case 0x37: // SWAP A
             regs[REG_A] = ((regs[REG_A] & 0x0f) << 4) | ((regs[REG_A] & 0xf0) >> 4);
             z = regs[REG_A] == 0;
@@ -1641,6 +1794,28 @@ void Cpu::execPrefix(SideEffects& eff)
             z = regs[REG_B] == 0;
             n = h = 0;
             eff.cycles = 8;
+            break;
+
+        case 0x3f: // SRL A
+            c = regs[REG_A] & 1;
+            regs[REG_A] >>= 1;
+            z = regs[REG_A] == 0;
+            n = h = 0;
+            eff.cycles = 8;
+            break;
+
+        case 0x40: // BIT 0,B
+            z = (regs[REG_B] & (1 << 0)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x46: // BIT 0,(HL)
+            z = (mem(hl()) & (1 << 0)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 16;
             break;
 
         case 0x50: // BIT 2,B
@@ -1657,6 +1832,14 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x5f: // BIT 3,A
+            z = (regs[REG_A] & (1 << 3)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+
         case 0x60: // BIT 4,B
             z = (regs[REG_B] & (1 << 4)) == 0;
             n = 0;
@@ -1666,6 +1849,28 @@ void Cpu::execPrefix(SideEffects& eff)
 
         case 0x68: // BIT 5,B
             z = (regs[REG_B] & (1 << 5)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x6c: // BIT 5,H
+            z = (regs[REG_H] & (1 << 5)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+
+        case 0x79: // BIG 7,C
+            z = (regs[REG_C] & (1 << 7)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x7d: // BIT 7,L
+            z = (regs[REG_L] & (1 << 7)) == 0;
             n = 0;
             h = 1;
             eff.cycles = 8;
@@ -1777,3 +1982,15 @@ void SerialController::exec(uint8_t cycles)
     }
 }
 
+
+JoypadController::JoypadController()
+{
+    select_buttons = true;
+    buttons_state = 0b11011111;
+    directions_state = 0b11101111;
+}
+
+uint8_t JoypadController::joyp()
+{
+    return select_buttons ? buttons_state : directions_state;
+}

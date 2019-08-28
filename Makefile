@@ -1,5 +1,5 @@
-CFLAGS = -Wall -Wextra -Iinclude/ -Iexternal/include -g -fsanitize=address,undefined
-LDFLAGS = -lSDL2 -g -ldl -lGL -fsanitize=address,undefined
+CFLAGS = -Wall -Wextra -Iinclude/ -Iexternal/include -g
+LDFLAGS = -lSDL2 -g -ldl -lGL
 
 all: main.o imgui.o imgui_demo.o imgui_draw.o imgui_widgets.o imgui_impl_sdl.o imgui_impl_opengl2.o glad.o cpu.o ppu.o
 	g++ $^ -o gbemu $(LDFLAGS)

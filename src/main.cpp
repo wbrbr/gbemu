@@ -56,6 +56,8 @@ void drawRegsWindow(Cpu& cpu, Ppu& ppu)
     ImGui::Text(buf);
     sprintf(buf, "MODE = %d", ppu.stat & 3);
     ImGui::Text(buf);
+    sprintf(buf, "JOYP = %02x\n", cpu.joypad.joyp());
+    ImGui::Text(buf);
     ImGui::End();
 }
 
@@ -150,17 +152,16 @@ void drawBGMapWindow(Ppu& ppu)
     uint32_t pixels[256*256];
     uint32_t values[] = { 0xff000000, 0x346856ff, 0x88c070ff, 0xe0f8d0ff };
 
-    // TODO: addressing modes
-    
     for (int yi = 0; yi < 32; yi++)
     {
         for (int xi = 0; xi < 32; xi++)
         {
-            int tile_index = ppu.vram[0x1800+yi*32+xi];
+            int tile_index = (ppu.lcdc & (1 << 4)) ? ppu.vram[0x1800+yi*32+xi] : (int8_t)ppu.vram[0x1800+yi*32+xi];
             for (int y = 0; y < 8; y++)
             {
-                uint8_t b1 = ppu.vram[tile_index * 16 + 2*y];
-                uint8_t b2 = ppu.vram[tile_index * 16 + 2*y + 1];
+                uint16_t addr = (ppu.lcdc & (1 << 4)) ? tile_index*16+2*y : 0x1000 + tile_index*16 + 2*y;
+                uint8_t b1 = ppu.vram[addr];
+                uint8_t b2 = ppu.vram[addr + 1];
                 for (int x = 0; x < 8; x++)
                 {
                     uint8_t lsb = (b1 >> (7 - x)) & 1;
@@ -201,6 +202,22 @@ void drawOAMWindow(Ppu& ppu)
     }
     ImGui::End();
 }
+
+void setbit(uint8_t& byte, uint8_t bit, bool set)
+{
+    if (set) {
+        byte |= (1 << bit);
+    } else {
+        byte &= ~(1 << bit);
+    }
+}
+
+struct Inputs {
+    bool left, right, up, down, a, b, select, start;
+    Inputs() {
+        left = right = up = down = a =  b = select = start = false;
+    }
+};
 
 int main(int argc, char** argv)
 {
@@ -274,9 +291,11 @@ int main(int argc, char** argv)
     bool go_step = false;
     bool go_step_back = false;
     bool running = true;
+    bool joypad_debug = false;
 
     const int CYCLES_PER_FRAME = 69905; // 4194304 / 60;
     uint64_t instr_num = 0;
+    Inputs inputs;
 
     while (running) {
 
@@ -320,6 +339,38 @@ int main(int argc, char** argv)
             ImGui_ImplSDL2_ProcessEvent(&e);
         }
 
+        ImGui_ImplOpenGL2_NewFrame();
+        ImGui_ImplSDL2_NewFrame(window);
+        ImGui::NewFrame();
+        ImGui::Begin("Joypad");
+        ImGui::Checkbox("Debug joypad", &joypad_debug);
+        if (joypad_debug) {
+            ImGui::Checkbox("Left", &inputs.left);
+            ImGui::Checkbox("Right", &inputs.right);
+            ImGui::Checkbox("Up", &inputs.up);
+            ImGui::Checkbox("Down", &inputs.down);
+        } else {
+            const uint8_t* state = SDL_GetKeyboardState(NULL);
+            inputs.left = state[SDL_SCANCODE_LEFT];
+            inputs.right = state[SDL_SCANCODE_RIGHT];
+            inputs.up = state[SDL_SCANCODE_UP];
+            inputs.down = state[SDL_SCANCODE_DOWN];
+            inputs.start = state[SDL_SCANCODE_RETURN];
+            inputs.select = state[SDL_SCANCODE_BACKSPACE];
+            inputs.b = state[SDL_SCANCODE_Z];
+            inputs.a = state[SDL_SCANCODE_X];
+        }
+        ImGui::End();
+
+        setbit(cpu.joypad.directions_state, 0, !inputs.right);
+        setbit(cpu.joypad.directions_state, 1, !inputs.left);
+        setbit(cpu.joypad.directions_state, 2, !inputs.up);
+        setbit(cpu.joypad.directions_state, 3, !inputs.down);
+        setbit(cpu.joypad.buttons_state, 0, !inputs.a);
+        setbit(cpu.joypad.buttons_state, 1, !inputs.b);
+        setbit(cpu.joypad.buttons_state, 2, !inputs.select);
+        setbit(cpu.joypad.buttons_state, 3, !inputs.start);
+
         if (mode == MODE_STEP) {
             if (go_step) {
                 SideEffects eff = cpu.cycle();
@@ -358,9 +409,6 @@ int main(int argc, char** argv)
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGBA, GL_UNSIGNED_BYTE, ppu.framebuf);
 
-        ImGui_ImplOpenGL2_NewFrame();
-        ImGui_ImplSDL2_NewFrame(window);
-        ImGui::NewFrame();
         if (mode == MODE_STEP) {
             drawRegsWindow(cpu, ppu);
             drawInstrWindow(cpu);

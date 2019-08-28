@@ -71,6 +71,15 @@ struct SerialController
     uint8_t sb, sc;
 };
 
+struct JoypadController
+{
+    JoypadController();
+    uint8_t joyp();
+    bool select_buttons;
+    uint8_t buttons_state;
+    uint8_t directions_state;
+};
+
 struct Cpu
 {
     Cpu();
@@ -92,6 +101,7 @@ struct Cpu
     uint16_t pop16();
 
     SerialController serial;
+    JoypadController joypad;
     Ppu* ppu;
     Mbc* mbc;
 

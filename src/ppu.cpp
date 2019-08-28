@@ -51,24 +51,32 @@ void Ppu::exec(uint8_t cycles)
                     int tile_x = x / 8;
                     int tile_y = ly / 8;
                     // TODO: palette, addressing modes, scrolling
-                    int tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                    int tile_num = (lcdc & (1 << 4)) ? vram[0x1800 + tile_y * 32 + tile_x] : (int8_t)vram[0x1800+tile_y*32+tile_x];
 
                     int x_off = x % 8;
                     int y_off = ly % 8;
-                    uint8_t b1 = vram[tile_num * 16 + 2*y_off];
-                    uint8_t b2 = vram[tile_num * 16 + 2*y_off+1];
+                    int offset = (lcdc & (1 << 4)) ? 0 : 0x1000;
+                    uint8_t b1 = vram[offset + tile_num * 16 + 2*y_off];
+                    uint8_t b2 = vram[offset + tile_num * 16 + 2*y_off+1];
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
                     uint8_t col = palette(bgp, lsb | (msb << 1));
                     
-                    // TODO: 8x16, priority, obj-to-bg priority, flips,...
+                    // TODO: priority, obj-to-bg priority...
                     for (int i = 0; i < 40; i++)
                     {
                         int sprite_y = (int)oam[4*i] - 16;
                         int sp_yoff = ly - sprite_y;
                         int sp_xoff =  x - (int)oam[4*i+1] + 8;
-                        if (sp_yoff >= 0 && sp_yoff < 8 && sp_xoff >= 0 && sp_xoff < 8) {
+                        uint8_t sp_flags = oam[4*i+3];
+                        int sprite_height = lcdc & (1 << 2) ? 16 : 8;
+
+                        if (sp_yoff >= 0 && sp_yoff < sprite_height && sp_xoff >= 0 && sp_xoff < 8) {
+                            if (i == 9) printf("%02x\n", sp_flags);
                             tile_num = oam[4*i+2];
+
+                            if (sp_flags & (1 << 5)) sp_xoff = 7 - sp_xoff;
+                            if (sp_flags & (1 << 6)) sp_yoff = sprite_height - 1 - sp_yoff;
                             b1 = vram[tile_num * 16 + 2*sp_yoff];
                             b2 = vram[tile_num * 16 + 2*sp_yoff+1];
                             lsb = (b1 >> (7 - sp_xoff)) & 1;
