@@ -7,6 +7,7 @@ struct Ppu;
 struct SideEffects
 {
     uint8_t cycles;
+    bool break_;
 };
 
 enum Registers {
@@ -95,7 +96,7 @@ struct Cpu
     uint16_t hl();
 
     uint8_t mem(uint16_t a, bool bypass = false);
-    void memw(uint16_t a, uint8_t v);
+    bool memw(uint16_t a, uint8_t v);
     void push(uint16_t v);
     uint8_t pop8();
     uint16_t pop16();
@@ -115,6 +116,8 @@ struct Cpu
 
     bool ime;
     uint8_t ie, if_;
+
+    uint16_t breakpoint;
 
 private:
     void daa();

@@ -72,7 +72,6 @@ void Ppu::exec(uint8_t cycles)
                         int sprite_height = lcdc & (1 << 2) ? 16 : 8;
 
                         if (sp_yoff >= 0 && sp_yoff < sprite_height && sp_xoff >= 0 && sp_xoff < 8) {
-                            if (i == 9) printf("%02x\n", sp_flags);
                             tile_num = oam[4*i+2];
 
                             if (sp_flags & (1 << 5)) sp_xoff = 7 - sp_xoff;

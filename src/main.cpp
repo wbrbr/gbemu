@@ -13,7 +13,6 @@ enum ExecMode {
     MODE_RUNBREAK,
 };
 
-uint16_t bp = 0x2ed;
 uint16_t mem_beg = 0;
 uint16_t mem_end = 0;
 uint32_t tiles_tex;
@@ -69,13 +68,13 @@ void drawInstrWindow(Cpu& cpu)
     {
         char b;
         if (i == cpu.pc ) b = '>';
-        else if (i == bp) b = '*';
+        else if (i == cpu.breakpoint) b = '*';
         else b = ' ';
         sprintf(buf, "%c %04x %02x", b, i, cpu.mem(i));
         ImGui::Text(buf);
     }
     ImGui::Separator();
-    ImGui::InputScalar("Breakpoint", ImGuiDataType_U16, &bp, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::InputScalar("Breakpoint", ImGuiDataType_U16, &cpu.breakpoint, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
     ImGui::End();
 }
 
@@ -291,7 +290,8 @@ int main(int argc, char** argv)
     bool go_step = false;
     bool go_step_back = false;
     bool running = true;
-    bool joypad_debug = false;
+    bool show_regs, show_instrs, show_mem, show_bgmap, show_tiles, show_oam, show_joypad;
+    show_regs = show_instrs = show_mem = show_bgmap = show_tiles = show_oam = show_joypad = false;
 
     const int CYCLES_PER_FRAME = 69905; // 4194304 / 60;
     uint64_t instr_num = 0;
@@ -342,13 +342,13 @@ int main(int argc, char** argv)
         ImGui_ImplOpenGL2_NewFrame();
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
-        ImGui::Begin("Joypad");
-        ImGui::Checkbox("Debug joypad", &joypad_debug);
-        if (joypad_debug) {
+        if (show_joypad) {
+            ImGui::Begin("Joypad");
             ImGui::Checkbox("Left", &inputs.left);
             ImGui::Checkbox("Right", &inputs.right);
             ImGui::Checkbox("Up", &inputs.up);
             ImGui::Checkbox("Down", &inputs.down);
+            ImGui::End();
         } else {
             const uint8_t* state = SDL_GetKeyboardState(NULL);
             inputs.left = state[SDL_SCANCODE_LEFT];
@@ -360,7 +360,6 @@ int main(int argc, char** argv)
             inputs.b = state[SDL_SCANCODE_Z];
             inputs.a = state[SDL_SCANCODE_X];
         }
-        ImGui::End();
 
         setbit(cpu.joypad.directions_state, 0, !inputs.right);
         setbit(cpu.joypad.directions_state, 1, !inputs.left);
@@ -398,7 +397,7 @@ int main(int argc, char** argv)
                 instr_num++;
                 if (instr_num == 0) puts("overflow");
                 i += eff.cycles;
-                if (mode == MODE_RUNBREAK && cpu.pc == bp) {
+                if (mode == MODE_RUNBREAK && eff.break_) {
                     mode = MODE_STEP;
                     go_step = false;
                     break;
@@ -409,15 +408,22 @@ int main(int argc, char** argv)
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGBA, GL_UNSIGNED_BYTE, ppu.framebuf);
 
-        if (mode == MODE_STEP) {
-            drawRegsWindow(cpu, ppu);
-            drawInstrWindow(cpu);
-            drawMemWindow(cpu);
-            drawTilesWindow(ppu);
-            drawBGMapWindow(ppu);
-            drawOAMWindow(ppu);
-            // ImGui::ShowDemoWindow();
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("Windows")) {
+                ImGui::Checkbox("Instructions", &show_instrs);
+                ImGui::Checkbox("Registers", &show_regs);
+                ImGui::Checkbox("Memory", &show_mem);
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
         }
+        if (show_regs) drawRegsWindow(cpu, ppu);
+        if (show_instrs) drawInstrWindow(cpu);
+        if (show_mem) drawMemWindow(cpu);
+        if (show_tiles)drawTilesWindow(ppu);
+        if (show_bgmap) drawBGMapWindow(ppu);
+        if (show_oam) drawOAMWindow(ppu);
+            // ImGui::ShowDemoWindow();
 
 
         ImGui::Render();
