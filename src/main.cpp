@@ -413,6 +413,8 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Instructions", &show_instrs);
                 ImGui::Checkbox("Registers", &show_regs);
                 ImGui::Checkbox("Memory", &show_mem);
+                ImGui::Checkbox("BG Map", &show_bgmap);
+                ImGui::Checkbox("OAM", &show_oam);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();

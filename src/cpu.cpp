@@ -118,7 +118,8 @@ void Cpu::reset()
     ie = 0;
     if_ = 0;
     ime = true;
-    z = h = n = c = 0;
+    z = h = c = 1;
+    n = 0;
     memset(wram, 0, sizeof(wram));
     memset(hram, 0, sizeof(hram));
     memset(regs, 0, sizeof(regs));
@@ -1771,6 +1772,143 @@ void Cpu::execPrefix(SideEffects& eff)
 {
     uint8_t instr = mem(pc++);
     // TODO: algorithmic decoding
+    
+
+    if (instr >= 0x40 && instr <= 0x7f) { // BIT
+        uint16_t off = instr - 0x40;
+        uint8_t bit = off / 0x8;
+        uint8_t reg = off % 0x8;
+        uint8_t v;
+        eff.cycles = 8;
+        
+        switch(reg) {
+            case 0:
+                v = regs[REG_B];
+                break;
+
+            case 1:
+                v = regs[REG_C];
+                break;
+
+            case 2:
+                v = regs[REG_D];
+                break;
+
+            case 3:
+                v = regs[REG_E];
+                break;
+
+            case 4:
+                v = regs[REG_H];
+                break;
+
+            case 5:
+                v = regs[REG_L];
+                break;
+
+            case 6:
+                v = mem(hl());
+                eff.cycles = 16;
+                break;
+
+            case 7:
+                v = regs[REG_A];
+                break;
+        }
+        z = (v & (1 << bit)) == 0;
+        n = 0;
+        h = 1;
+        return;
+    }
+
+    if (instr >= 0x80 && instr <= 0xbf) { // res
+        uint16_t off = instr - 0x80;
+        uint8_t bit = off / 0x8;
+        uint8_t reg = off % 0x8;
+        if (reg == 6) { // (HL)
+            memw(hl(), mem(hl()) & ~(1 << bit));
+            eff.cycles = 16;
+        } else {
+            uint8_t* v;
+            switch(reg) {
+                case 0:
+                    v = &regs[REG_B];
+                    break;
+
+                case 1:
+                    v = &regs[REG_C];
+                    break;
+
+                case 2:
+                    v = &regs[REG_D];
+                    break;
+
+                case 3:
+                    v = &regs[REG_E];
+                    break;
+
+                case 4:
+                    v = &regs[REG_H];
+                    break;
+
+                case 5:
+                    v = &regs[REG_L];
+                    break;
+
+                case 7:
+                    v = &regs[REG_A];
+                    break;
+            }
+            *v &= ~(1 << bit);
+            eff.cycles = 8;
+        }
+        return;
+    }
+
+    if (instr >= 0xc0) { // SET
+        uint16_t off = instr - 0xc0;
+        uint8_t bit = off / 0x8;
+        uint8_t reg = off % 0x8;
+        if (reg == 6) { // (HL)
+            memw(hl(), mem(hl()) | (1 << bit));
+            eff.cycles = 16;
+        } else {
+            uint8_t* v;
+            switch(reg) {
+                case 0:
+                    v = &regs[REG_B];
+                    break;
+
+                case 1:
+                    v = &regs[REG_C];
+                    break;
+
+                case 2:
+                    v = &regs[REG_D];
+                    break;
+
+                case 3:
+                    v = &regs[REG_E];
+                    break;
+
+                case 4:
+                    v = &regs[REG_H];
+                    break;
+
+                case 5:
+                    v = &regs[REG_L];
+                    break;
+
+                case 7:
+                    v = &regs[REG_A];
+                    break;
+            }
+            *v |= 1 << bit;
+            eff.cycles = 8;
+        }
+        return;
+    }
+
     switch(instr) {
 
         case 0x08: // RRC B
@@ -1885,14 +2023,34 @@ void Cpu::execPrefix(SideEffects& eff)
             break;
 
         case 0x40: // BIT 0,B
-            z = (regs[REG_B] & (1 << 0)) == 0;
+            instr_bit(regs[REG_B], 0);
+            eff.cycles = 8;
+            break;
+
+        case 0x41: // BIT 0,C
+            instr_bit(regs[REG_C], 0);
+            eff.cycles = 8;
+            break;
+
+        case 0x42: // BIT 0,D
+            instr_bit(regs[REG_D], 0);
+            eff.cycles = 8;
+            break;
+
+        case 0x43: // BIT 0,E
+            instr_bit(regs[REG_E], 0);
+            eff.cycles = 8;
+            break;
+
+        case 0x44: // BIT 0,H
+            z = (regs[REG_H] & (1 << 0)) == 0;
             n = 0;
             h = 1;
             eff.cycles = 8;
             break;
 
-        case 0x41: // BIT 0,C
-            z = (regs[REG_C] & (1 << 0)) == 0;
+        case 0x45: // BIT 0,L
+            z = (regs[REG_L] & (1 << 0)) == 0;
             n = 0;
             h = 1;
             eff.cycles = 8;
@@ -1919,11 +2077,90 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x49: // BIT 1,C
+            z = (regs[REG_C] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x4a: // BIT 1,D
+            z = (regs[REG_C] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x4b: // BIT 1,E
+            z = (regs[REG_E] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x4c: // BIT 1,H
+            z = (regs[REG_H] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x4d: // BIT 1,L
+            z = (regs[REG_L] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x4e: // BIT 1,(HL)
+            z = (mem(hl()) & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 16;
+            break;
+
+        case 0x4f: // BIT 1,A
+            z = (regs[REG_A] & (1 << 1)) == 0;
+            n = 0;
+            h = 1;
+            eff.cycles = 8;
+            break;
+
         case 0x50: // BIT 2,B
             z = (regs[REG_B] & (1 << 2)) == 0;
             n = 0;
             h = 1;
             eff.cycles = 8;
+            break;
+
+        case 0x51: // BIT 2,C
+            instr_bit(regs[REG_C],2);
+            eff.cycles = 8;
+            break;
+
+        case 0x52: // BIT 2,D
+            instr_bit(regs[REG_D],2);
+            eff.cycles = 8;
+            break;
+
+        case 0x53: // BIT 2,E
+            instr_bit(regs[REG_E],2);
+            eff.cycles = 8;
+            break;
+
+        case 0x54: // BIT 2,H
+            instr_bit(regs[REG_H],2);
+            eff.cycles = 8;
+            break;
+
+        case 0x55: // BIT 2,L
+            instr_bit(regs[REG_L],2);
+            eff.cycles = 8;
+            break;
+
+        case 0x56: // BIT 2,(HL)
+            instr_bit(mem(hl()),2);
+            eff.cycles = 16;
             break;
 
         case 0x57: // BIT 2,A
@@ -1938,6 +2175,36 @@ void Cpu::execPrefix(SideEffects& eff)
             n = 0;
             h = 1;
             eff.cycles = 8;
+            break;
+
+        case 0x59: // BIT 3,C
+            instr_bit(regs[REG_C], 3);
+            eff.cycles = 8;
+            break;
+
+        case 0x5a: // BIT 3,D
+            instr_bit(regs[REG_D], 3);
+            eff.cycles = 8;
+            break;
+
+        case 0x5b: // BIT 3,E
+            instr_bit(regs[REG_E], 3);
+            eff.cycles = 8;
+            break;
+
+        case 0x5c: // BIT 3,H
+            instr_bit(regs[REG_H], 3);
+            eff.cycles = 8;
+            break;
+
+        case 0x5d: // BIT 3,L
+            instr_bit(regs[REG_L], 3);
+            eff.cycles = 8;
+            break;
+
+        case 0x5e: // BIT 3,(HL)
+            instr_bit(mem(hl()), 3);
+            eff.cycles = 16;
             break;
 
         case 0x5f: // BIT 3,A
@@ -1958,6 +2225,36 @@ void Cpu::execPrefix(SideEffects& eff)
             z = (regs[REG_C] & (1 << 4)) == 0;
             n = 0;
             h = 1;
+            eff.cycles = 8;
+            break;
+
+        case 0x62: // BIT 4,D
+            instr_bit(regs[REG_D], 4);
+            eff.cycles = 8;
+            break;
+
+        case 0x63: // BIT 4,E
+            instr_bit(regs[REG_E], 4);
+            eff.cycles = 8;
+            break;
+
+        case 0x64: // BIT 4,H
+            instr_bit(regs[REG_H], 4);
+            eff.cycles = 8;
+            break;
+
+        case 0x65: // BIT 4,L
+            instr_bit(regs[REG_L], 4);
+            eff.cycles = 8;
+            break;
+
+        case 0x66: // BIT 4,(HL)
+            instr_bit(mem(hl()), 4);
+            eff.cycles = 16;
+            break;
+
+        case 0x67: // BIT 4, A
+            instr_bit(regs[REG_A], 4);
             eff.cycles = 8;
             break;
 
@@ -2151,4 +2448,9 @@ JoypadController::JoypadController()
 uint8_t JoypadController::joyp()
 {
     return select_buttons ? buttons_state : directions_state;
+}
+
+void Cpu::instr_bit(uint8_t v, uint8_t bit)
+{
+    puts("instr bit unimplemented");
 }

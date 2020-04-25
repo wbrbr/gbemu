@@ -122,5 +122,7 @@ struct Cpu
 private:
     void daa();
     void execPrefix(SideEffects& eff);
+    
+    void instr_bit(uint8_t v, uint8_t bit);
 };
 #endif
