@@ -342,6 +342,15 @@ void Cpu::instr_adc(uint8_t v)
     n = 0;
 }
 
+void Cpu::instr_sbc(uint8_t v)
+{
+    c = v + c > regs[REG_A];
+    h = (v & 0xf) + c > (regs[REG_A] & 0xf);
+    n = 1;
+    regs[REG_A] -= v + c;
+    z = regs[REG_A] == 0;
+}
+
 SideEffects Cpu::cycle()
 {
     if (ime) {
@@ -1097,48 +1106,28 @@ SideEffects Cpu::cycle()
 
         case 0x9c: // SBC A,H
         {
-            uint8_t v = regs[REG_H] + c;
-            c = v > regs[REG_A];
-            h = (v & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= v;
-            z = regs[REG_A] == 0;
+            instr_sbc(regs[REG_H]);
             eff.cycles = 4;
             break;
         }
         
         case 0x9d: // SBC A,L
         {
-            uint8_t v = regs[REG_L] + c;
-            c = v > regs[REG_A];
-            h = (v & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= v;
-            z = regs[REG_A] == 0;
+            instr_sbc(regs[REG_H]);
             eff.cycles = 4;
             break;
         }
 
         case 0x9e: // SBC A,(HL)
         {
-            uint8_t v = mem(hl()) + c;
-            c = v > regs[REG_A];
-            h = (v & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= v;
-            z = regs[REG_A] == 0;
+            instr_sbc(mem(hl()));
             eff.cycles = 8;
             break;
         }
 
         case 0x9f: // SBC A,A
         {
-            uint8_t v = regs[REG_A] + c;
-            c = v > regs[REG_A];
-            h = (v & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= v;
-            z = regs[REG_A] == 0;
+            instr_sbc(regs[REG_A]);
             eff.cycles = 4;
             break;
         }
@@ -1457,6 +1446,11 @@ SideEffects Cpu::cycle()
             ime = true;
             pc = pop16();
             eff.cycles = 16;
+            break;
+
+        case 0xde: // SBC A,d8
+            instr_sbc(mem(pc++));
+            eff.cycles = 8;
             break;
 
         case 0xe0: // LD ($ff00+a8),A

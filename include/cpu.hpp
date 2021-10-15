@@ -122,6 +122,7 @@ struct Cpu
 private:
     void instr_add(uint8_t v);
     void instr_adc(uint8_t v);
+    void instr_sbc(uint8_t v);
     void daa();
     void execPrefix(SideEffects& eff);
     
