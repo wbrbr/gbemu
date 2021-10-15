@@ -849,6 +849,31 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x41: // LD B,C
+            regs[REG_B] = regs[REG_C];
+            eff.cycles = 4;
+            break;
+
+        case 0x42: // LD B,D
+            regs[REG_B] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
+        case 0x43: // LD B,E
+            regs[REG_B] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
+        case 0x44: // LD B,H
+            regs[REG_B] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
+        case 0x45: // LD B,L
+            regs[REG_B] = regs[REG_L];
+            eff.cycles = 4;
+            break;
+
         case 0x46: // LD B,(HL)
             regs[REG_B] = mem(hl());
             eff.cycles = 8;
@@ -856,6 +881,35 @@ SideEffects Cpu::cycle()
 
         case 0x47: // LD B,A
             regs[REG_B] = regs[REG_A];
+            eff.cycles = 4;
+            break;
+
+        case 0x48: // LD C,B
+            regs[REG_C] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x49: // LD C,C
+            eff.cycles = 4;
+            break;
+
+        case 0x4a: // LD C,D
+            regs[REG_C] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
+        case 0x4b: // LD C,E
+            regs[REG_C] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
+        case 0x4c: // LD C,H
+            regs[REG_C] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
+        case 0x4d: // LD C,L
+            regs[REG_C] = regs[REG_L];
             eff.cycles = 4;
             break;
 
@@ -869,8 +923,32 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x50: // LD D,B
+            regs[REG_D] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x51: // LD D,C
+            regs[REG_D] = regs[REG_C];
+            eff.cycles = 4;
+            break;
+
+        case 0x52: // LD D,D
+            eff.cycles = 4;
+            break;
+
+        case 0x53: // LD D,E
+            regs[REG_D] = regs[REG_E];
+            eff.cycles = 4;
+            break;
+
         case 0x54: // LD D,H
             regs[REG_D] = regs[REG_H];
+            eff.cycles = 4;
+            break;
+
+        case 0x55: // LD D,L
+            regs[REG_D] = regs[REG_L];
             eff.cycles = 4;
             break;
 
@@ -884,8 +962,27 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x58: // LD E,B
+            regs[REG_E] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x59: // LD E,C
+            regs[REG_E] = regs[REG_C];
+            eff.cycles = 4;
+            break;
+
         case 0x5a: // LD E,D
             regs[REG_E] = regs[REG_D];
+            eff.cycles = 4;
+            break;
+
+        case 0x5b: // LD E,E
+            eff.cycles = 4;
+            break;
+
+        case 0x5c: // LD E,H
+            regs[REG_E] = regs[REG_H];
             eff.cycles = 4;
             break;
 
@@ -906,6 +1003,11 @@ SideEffects Cpu::cycle()
 
         case 0x60: // LD H,B
             regs[REG_H] = regs[REG_B];
+            eff.cycles = 4;
+            break;
+
+        case 0x61: // LD H,C
+            regs[REG_H] = regs[REG_C];
             eff.cycles = 4;
             break;
 
@@ -943,6 +1045,11 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
+        case 0x69: // LD L,C
+            regs[REG_L] = regs[REG_C];
+            eff.cycles = 4;
+            break;
+
         case 0x6a: // LD L,D
             regs[REG_L] = regs[REG_D];
             eff.cycles = 4;
@@ -972,11 +1079,6 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
-        case 0x69: // LD L,C
-            regs[REG_L] = regs[REG_C];
-            eff.cycles = 4;
-            break;
-
         case 0x70: // LD (HL),B
             memw(hl(), regs[REG_B]);
             eff.cycles = 8;
@@ -997,6 +1099,16 @@ SideEffects Cpu::cycle()
             eff.cycles = 8;
             break;
 
+        case 0x74: // LD (HL),H
+            memw(hl(), regs[REG_H]);
+            eff.cycles = 8;
+            break;
+
+        case 0x75: // LD (HL),L
+            memw(hl(), regs[REG_L]);
+            eff.cycles = 8;
+            break;
+
         case 0x77: // LD (HL),A
             memw(hl(), regs[REG_A]);
             eff.cycles = 8;
@@ -1013,7 +1125,7 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x7a: // LD A,D
-            regs[REG_A] = regs[REG_E];
+            regs[REG_A] = regs[REG_D];
             eff.cycles = 4;
             break;
 
@@ -1035,6 +1147,10 @@ SideEffects Cpu::cycle()
         case 0x7e: // LD A,(HL)
             regs[REG_A] = mem(hl());
             eff.cycles = 8;
+            break;
+
+        case 0x7f: // LD A,A
+            eff.cycles = 4;
             break;
 
         case 0x80: // ADD A,B
