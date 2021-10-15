@@ -324,6 +324,14 @@ uint16_t Cpu::hl()
     return regs[REG_L] | (regs[REG_H] << 8);
 }
 
+void Cpu::instr_add(unsigned int reg) {
+    h = (regs[REG_A] & 0xf) + (regs[reg] & 0xf) > 0xf;
+    c = regs[REG_A] + regs[REG_B] > 0xff;
+    regs[REG_A] += regs[REG_B];
+    z = regs[REG_A] == 0;
+    n = 0;
+}
+
 SideEffects Cpu::cycle()
 {
     if (ime) {
@@ -1011,29 +1019,22 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x80: // ADD A,B
-            h = (regs[REG_A] & 0xf) + (regs[REG_B] & 0xf) > 0xf;
-            c = regs[REG_A] + regs[REG_B] > 0xff;
-            regs[REG_A] += regs[REG_B];
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_add(REG_B);
+            eff.cycles = 4;
+            break;
+
+        case 0x81: // ADD A,C
+            instr_add(REG_C);
             eff.cycles = 4;
             break;
 
         case 0x82: // ADD A,D
-            h = (regs[REG_A] & 0xf) + (regs[REG_D] & 0xf) > 0xf;
-            c = regs[REG_A] + regs[REG_D] > 0xff;
-            regs[REG_A] += regs[REG_D];
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_add(REG_D);
             eff.cycles = 4;
             break;
 
         case 0x85: // ADD A,L
-            h = (regs[REG_A] & 0xf) + (regs[REG_L] & 0xf) > 0xf;
-            c = regs[REG_A] + regs[REG_L] > 0xff;
-            regs[REG_A] += regs[REG_L];
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_add(REG_L);
             eff.cycles = 4;
             break;
 
@@ -1051,26 +1052,25 @@ SideEffects Cpu::cycle()
 
 
         case 0x87: // ADD A,A
-            h = (regs[REG_A] & 0xf) + (regs[REG_A] & 0xf) > 0xf;
-            c = regs[REG_A] + regs[REG_A] > 0xff;
-            regs[REG_A] += regs[REG_A];
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_add(REG_A);
             eff.cycles = 4;
             break;
 
-        case 0x89: // ADD A,C
-            h = (regs[REG_A] & 0xf) + (regs[REG_C] & 0xf) > 0xf;
-            c = regs[REG_A] + regs[REG_C] > 0xff;
-            regs[REG_A] += regs[REG_C];
+        case 0x89: // ADC A,C
+        {
+            uint16_t v = regs[REG_C] + c;
+            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
+            c = regs[REG_A] + v > 0xff;
+            regs[REG_A] += v;
             z = regs[REG_A] == 0;
             n = 0;
             eff.cycles = 4;
             break;
+        }
 
         case 0x8e: // ADC A,(HL)
         {
-            uint8_t v = mem(hl()) + c;
+            uint16_t v = mem(hl()) + c;
             h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
             c = regs[REG_A] + v > 0xff;
             regs[REG_A] += v;

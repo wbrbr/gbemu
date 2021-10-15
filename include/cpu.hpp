@@ -120,6 +120,7 @@ struct Cpu
     uint16_t breakpoint;
 
 private:
+    void instr_add(unsigned int reg);
     void daa();
     void execPrefix(SideEffects& eff);
     
