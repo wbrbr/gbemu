@@ -324,10 +324,20 @@ uint16_t Cpu::hl()
     return regs[REG_L] | (regs[REG_H] << 8);
 }
 
-void Cpu::instr_add(unsigned int reg) {
-    h = (regs[REG_A] & 0xf) + (regs[reg] & 0xf) > 0xf;
-    c = regs[REG_A] + regs[REG_B] > 0xff;
-    regs[REG_A] += regs[REG_B];
+void Cpu::instr_add(uint8_t v)
+{
+    h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
+    c = regs[REG_A] + v > 0xff;
+    regs[REG_A] += v;
+    z = regs[REG_A] == 0;
+    n = 0;
+}
+
+void Cpu::instr_adc(uint8_t v)
+{
+    h = (regs[REG_A] & 0xf) + (v & 0xf) + (c & 0xf) > 0xf;
+    c = regs[REG_A] + v + c> 0xff;
+    regs[REG_A] += v + c;
     z = regs[REG_A] == 0;
     n = 0;
 }
@@ -1019,37 +1029,31 @@ SideEffects Cpu::cycle()
             break;
 
         case 0x80: // ADD A,B
-            instr_add(REG_B);
+            instr_add(regs[REG_B]);
             eff.cycles = 4;
             break;
 
         case 0x81: // ADD A,C
-            instr_add(REG_C);
+            instr_add(regs[REG_C]);
             eff.cycles = 4;
             break;
 
         case 0x82: // ADD A,D
-            instr_add(REG_D);
+            instr_add(regs[REG_D]);
             eff.cycles = 4;
             break;
 
         case 0x85: // ADD A,L
-            instr_add(REG_L);
+            instr_add(regs[REG_L]);
             eff.cycles = 4;
             break;
 
         case 0x86: // ADD A,(HL)
         {
-            uint8_t v = mem(hl());
-            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
-            c = regs[REG_A] + v > 0xff;
-            regs[REG_A] += v;
-            z = regs[REG_A] == 0;
-            n = 0;
-            eff.cycles = 4;
+            instr_add(mem(hl()));
+            eff.cycles = 8;
             break;
         }
-
 
         case 0x87: // ADD A,A
             instr_add(REG_A);
@@ -1058,24 +1062,14 @@ SideEffects Cpu::cycle()
 
         case 0x89: // ADC A,C
         {
-            uint16_t v = regs[REG_C] + c;
-            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
-            c = regs[REG_A] + v > 0xff;
-            regs[REG_A] += v;
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_adc(regs[REG_C]);
             eff.cycles = 4;
             break;
         }
 
         case 0x8e: // ADC A,(HL)
         {
-            uint16_t v = mem(hl()) + c;
-            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
-            c = regs[REG_A] + v > 0xff;
-            regs[REG_A] += v;
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_adc(mem(hl()));
             eff.cycles = 8;
             break;
         }
@@ -1367,12 +1361,7 @@ SideEffects Cpu::cycle()
 
         case 0xc6: // ADD A,d8
         {
-            uint8_t d8 = mem(pc++);
-            h = (regs[REG_A] & 0xf) + (d8 & 0xf) > 0xf;
-            c = regs[REG_A] + d8 > 0xff;
-            regs[REG_A] += d8;
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_add(mem(pc++));
             eff.cycles = 8;
             break;
         }

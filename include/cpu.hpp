@@ -120,7 +120,8 @@ struct Cpu
     uint16_t breakpoint;
 
 private:
-    void instr_add(unsigned int reg);
+    void instr_add(uint8_t v);
+    void instr_adc(uint8_t v);
     void daa();
     void execPrefix(SideEffects& eff);
     
