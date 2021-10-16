@@ -119,6 +119,8 @@ struct Cpu
     bool ime;
     uint8_t ie, if_;
 
+    bool halted;
+
     uint16_t breakpoint;
 
 private:

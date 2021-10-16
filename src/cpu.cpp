@@ -109,6 +109,7 @@ Cpu::Cpu(): serial(this)
     ppu = nullptr;
     mbc = nullptr;
     breakpoint = 0xffff;
+    halted = false;
     reset();
 }
 
@@ -362,6 +363,14 @@ void Cpu::instr_sbc(uint8_t v)
 
 SideEffects Cpu::cycle()
 {
+    SideEffects eff{};
+    eff.cycles = 0;
+    eff.break_ = false;
+
+    if ((ie & if_) != 0) {
+        halted = false;
+    }
+
     if (ime) {
         uint16_t int_handlers[] = {0x40, 0x48, 0x50, 0x58, 0x60};
         for (int i = 0; i <= 4; i++)
@@ -371,17 +380,20 @@ SideEffects Cpu::cycle()
                 ime = false;
                 push(pc);
                 pc = int_handlers[i];
-                // FIXME: needs to increment cycles by 5
-                break;
+
+                eff.cycles = 5*4;
+                return eff;
             }
         }
     }
 
+    if (halted) {
+        eff.cycles += 4;
+        return eff;
+    }
+
     uint8_t instr = mem(pc);
     pc++;
-    SideEffects eff{};
-    eff.cycles = 0;
-    eff.break_ = false;
 
     switch(instr) {
         case 0x00: // NOP
@@ -1117,6 +1129,11 @@ SideEffects Cpu::cycle()
         case 0x75: // LD (HL),L
             memw(hl(), regs[REG_L]);
             eff.cycles = 8;
+            break;
+
+        case 0x76: // HALT
+            halted = true;
+            eff.cycles = 4;
             break;
 
         case 0x77: // LD (HL),A

@@ -296,7 +296,7 @@ int main(int argc, char** argv)
     bool show_regs, show_instrs, show_mem, show_bgmap, show_tiles, show_oam, show_joypad;
     show_regs = show_instrs = show_mem = show_bgmap = show_tiles = show_oam = show_joypad = false;
 
-    const int CYCLES_PER_FRAME = 69905; // 4194304 / 60;
+    const int CYCLES_PER_FRAME = 4194304 / 60;
     uint64_t instr_num = 0;
     Inputs inputs;
 
@@ -396,7 +396,9 @@ int main(int argc, char** argv)
             for (int i = 0; i < CYCLES_PER_FRAME;)
             {
                 SideEffects eff = cpu.cycle();
-                ppu.exec(eff.cycles);
+                if (!cpu.halted) {
+                    ppu.exec(eff.cycles);
+                }
                 instr_num++;
                 if (instr_num == 0) puts("overflow");
                 i += eff.cycles;
