@@ -1,5 +1,5 @@
-#ifndef PPU_HPP
-#define PPU_HPP
+#ifndef GBEMU_PPU_HPP
+#define GBEMU_PPU_HPP
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>

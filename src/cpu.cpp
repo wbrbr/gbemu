@@ -4,6 +4,7 @@
 #include <string.h>
 #include "cpu.hpp"
 #include "ppu.hpp"
+#include "timer.hpp"
 
 Mbc::~Mbc() {};
 
@@ -192,6 +193,10 @@ uint8_t Cpu::mem(uint16_t a, bool bypass)
             case 0xFF00: return joypad.joyp();
             case 0xFF01: return serial.sb;
             case 0xFF02: return serial.sc;
+            case 0xFF04: return timer->div;
+            case 0xFF05: return timer->tima;
+            case 0xFF06: return timer->tma;
+            case 0xFF07: return timer->tac;
             case 0xFF0F: return if_;
             case 0xFF40: return ppu->lcdc;
             case 0xFF41: return ppu->stat;
@@ -248,6 +253,10 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF00: joypad.select_buttons = (v & (1 << 5)) == 0; break;
             case 0xFF01: serial.sb = v; puts("serial!!"); break;
             case 0xFF02: serial.sc = v; break;
+            case 0xFF04: timer->div = v; break;
+            case 0xFF05: timer->tima = v; break;
+            case 0xFF06: timer->tma = v; break;
+            case 0xFF07: timer->tac = v; break;
             case 0xFF0F: if_ = v; break;
             case 0xFF40: ppu->lcdc = v; break;
             case 0xFF41: assert((v & 0xF) == 0); ppu->stat = v; break; // TODO: only change top bits
@@ -370,8 +379,9 @@ SideEffects Cpu::cycle()
 
     uint8_t instr = mem(pc);
     pc++;
-    SideEffects eff;
+    SideEffects eff{};
     eff.cycles = 0;
+    eff.break_ = false;
 
     switch(instr) {
         case 0x00: // NOP
@@ -1721,6 +1731,8 @@ SideEffects Cpu::cycle()
     }
 
     assert(eff.cycles > 0);
+
+    timer->update(eff.cycles, *this);
 
     // serial.exec(eff.cycles);
 

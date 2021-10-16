@@ -1,8 +1,9 @@
-#ifndef CPU_HPP
-#define CPU_HPP
+#ifndef GBEMU_CPU_HPP
+#define GBEMU_CPU_HPP
 #include <stdint.h>
 
 struct Ppu;
+class Timer;
 
 struct SideEffects
 {
@@ -105,6 +106,7 @@ struct Cpu
     JoypadController joypad;
     Ppu* ppu;
     Mbc* mbc;
+    Timer* timer;
 
     // uint8_t rom[0x8000];
     uint8_t wram[0x2000];

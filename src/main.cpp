@@ -1,6 +1,7 @@
 #include "glad/glad.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#include <timer.hpp>
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "imgui.h"
@@ -281,9 +282,11 @@ int main(int argc, char** argv)
     cpu.load(argv[1]);
     
     Ppu ppu;
+    Timer timer;
 
     cpu.ppu = &ppu;
     ppu.cpu = &cpu;
+    cpu.timer = &timer;
 
     ExecMode mode = MODE_STEP;
 
