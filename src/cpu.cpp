@@ -252,7 +252,7 @@ bool Cpu::memw(uint16_t a, uint8_t v)
     if (a <= 0xFF7F) {
         switch(a) {
             case 0xFF00: joypad.select_buttons = (v & (1 << 5)) == 0; break;
-            case 0xFF01: serial.sb = v; puts("serial!!"); break;
+            case 0xFF01: serial.sb = v; printf("%c", v); break;
             case 0xFF02: serial.sc = v; break;
             case 0xFF04: timer->div = v; break;
             case 0xFF05: timer->tima = v; break;
@@ -535,7 +535,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0x18: // JR r8
-            pc += (int8_t)mem(pc++);
+            pc += (int8_t)mem(pc)+1;
             eff.cycles = 12;
             break;
 
@@ -594,7 +594,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x20: // JR NZ,r8
             if (!z) {
-                pc += (int8_t)mem(pc++);
+                pc += (int8_t)mem(pc)+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -656,7 +656,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x28: // JR Z,r8
             if (z) {
-                pc += (int8_t)mem(pc++);
+                pc += (int8_t)mem(pc)+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -725,7 +725,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x30: // JR NC,r8
             if (!c) {
-                pc += (int8_t)mem(pc++);
+                pc += (int8_t)mem(pc)+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -784,7 +784,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x38: // JR C,r8
             if (c) {
-                pc += (int8_t)mem(pc++);
+                pc += (int8_t)mem(pc)+1;
                 eff.cycles = 12;
             } else {
                 pc++;
