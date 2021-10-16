@@ -361,6 +361,12 @@ void Cpu::instr_sbc(uint8_t v)
     z = regs[REG_A] == 0;
 }
 
+void Cpu::instr_rst(uint16_t addr)
+{
+    push(pc);
+    pc = addr;
+}
+
 void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
     switch(instr) {
@@ -1466,6 +1472,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
+        case 0xc7: // RST 00H
+            instr_rst(0);
+            eff.cycles = 16;
+            break;
+
         case 0xc8: // RET Z
             if (z) {
                 pc = pop16();
@@ -1493,6 +1504,17 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             execPrefix(eff);
             break;
 
+        case 0xcc: // CALL Z,a16
+            if (z) {
+                push(pc+2);
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 24;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
+
         case 0xcd: // CALL a16
             push(pc+2);
             pc = mem(pc) | (mem(pc+1) << 8);
@@ -1511,6 +1533,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
+        case 0xcf: // RST 08H
+            instr_rst(0x08);
+            eff.cycles = 16;
+            break;
+
         case 0xd0: // RET NC
             if (!c) {
                 pc = pop16();
@@ -1524,6 +1551,27 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_E] = pop8();
             regs[REG_D] = pop8();
             eff.cycles = 12;
+            break;
+
+        case 0xd2: // JP NC,a16
+            if (!c) {
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 16;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
+
+        case 0xd4: // CALL NC,a16
+            if (!c) {
+                push(pc+2);
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 24;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
             break;
 
         case 0xd5: // PUSH DE
@@ -1543,6 +1591,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
+        case 0xd7: // RST 10H
+            instr_rst(0x10);
+            eff.cycles = 16;
+            break;
+
         case 0xd8: // RET C
             if (c) {
                 pc = pop16();
@@ -1559,9 +1612,35 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             eff.cycles = 16;
             break;
 
+        case 0xda: // JP C,a16
+            if (c) {
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 16;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
+
+        case 0xdc: // CALL C,a16
+            if (c) {
+                push(pc+2);
+                pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 24;
+            } else {
+                pc += 2;
+                eff.cycles = 12;
+            }
+            break;
+
         case 0xde: // SBC A,d8
             instr_sbc(mem(pc++));
             eff.cycles = 8;
+            break;
+
+        case 0xdf: // RST 18H
+            instr_rst(0x18);
+            eff.cycles = 16;
             break;
 
         case 0xe0: // LD ($ff00+a8),A
@@ -1594,6 +1673,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             eff.cycles = 8;
             break;
 
+        case 0xe7: // RST 20H
+            instr_rst(0x20);
+            eff.cycles = 16;
+            break;
+
         case 0xea: // LD (a16),A
             memw(mem(pc) | (mem(pc+1) << 8), regs[REG_A]);
             pc += 2;
@@ -1624,8 +1708,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0xef: // RST $28
-            push(pc);
-            pc = 0x28;
+            instr_rst(0x28);
             eff.cycles = 16;
             break;
 
@@ -1669,6 +1752,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             eff.cycles = 8;
             break;
 
+        case 0xf7: // RST 30H
+            instr_rst(0x30);
+            eff.cycles = 16;
+            break;
+
         case 0xf8: // LD HL,SP+r8
         {
             int16_t r8 = (int8_t)mem(pc++);
@@ -1681,6 +1769,12 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             eff.cycles = 12;
             break;
         }
+
+        case 0xf9: // LD SP,HL
+            sp = hl();
+            eff.cycles = 8;
+            break;
+
 
         case 0xfb: // EI
             ime = true;
@@ -1705,9 +1799,9 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
-        case 0xf9: // LD SP,HL
-            sp = hl();
-            eff.cycles = 8;
+        case 0xff: // RST 38H
+            instr_rst(0x38);
+            eff.cycles = 16;
             break;
 
         default:

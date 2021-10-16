@@ -127,6 +127,7 @@ private:
     void instr_add(uint8_t v);
     void instr_adc(uint8_t v);
     void instr_sbc(uint8_t v);
+    void instr_rst(uint16_t addr);
     void daa();
     void executeInstruction(uint8_t instr, SideEffects& eff);
     void execPrefix(SideEffects& eff);
