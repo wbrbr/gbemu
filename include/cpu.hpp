@@ -128,6 +128,7 @@ private:
     void instr_adc(uint8_t v);
     void instr_sbc(uint8_t v);
     void daa();
+    void executeInstruction(uint8_t instr, SideEffects& eff);
     void execPrefix(SideEffects& eff);
     
     void instr_bit(uint8_t v, uint8_t bit);

@@ -24,40 +24,31 @@ void drawRegsWindow(Cpu& cpu, Ppu& ppu)
     ImGui::Begin("Registers");
 
     ImGui::Columns(2);
-    char buf[20];
-    sprintf(buf, "AF = %04x", cpu.af());
-    ImGui::Text(buf);
-    sprintf(buf, "BC = %04x", cpu.bc());
-    ImGui::Text(buf);
-    sprintf(buf, "DE = %04x", cpu.de());
-    ImGui::Text(buf);
-    sprintf(buf, "HL = %04x", cpu.hl());
-    ImGui::Text(buf);
+    ImGui::Text("AF = %04x", cpu.af());
+    ImGui::Text("BC = %04x", cpu.bc());
+    ImGui::Text("DE = %04x", cpu.de());
+    ImGui::Text("HL = %04x", cpu.hl());
 
-    sprintf(buf, "PC = %04x", cpu.pc);
-    ImGui::Text(buf);
-    sprintf(buf, "SP = %04x", cpu.sp);
-    ImGui::Text(buf);
-    sprintf(buf, "Z = %d", cpu.z);
-    ImGui::Text(buf);
-    sprintf(buf, "N = %d", cpu.n);
-    ImGui::Text(buf);
-    sprintf(buf, "H = %d", cpu.h);
-    ImGui::Text(buf);
-    sprintf(buf, "C = %d", cpu.c);
-    ImGui::Text(buf);
+    ImGui::Text("PC = %04x", cpu.pc);
+    ImGui::Text("SP = %04x", cpu.sp);
+    ImGui::Text("Z = %d", cpu.z);
+    ImGui::Text("N = %d", cpu.n);
+    ImGui::Text("H = %d", cpu.h);
+    ImGui::Text("C = %d", cpu.c);
+
+    ImGui::Text("");
+
+    ImGui::Text("HALT = %u", cpu.halted);
+    ImGui::Text("IME = %u", cpu.ime);
+    ImGui::Text("IE = %04x", cpu.ie);
+    ImGui::Text("IF = %04x", cpu.if_);
 
     ImGui::NextColumn();
-    sprintf(buf, "LCDC = %02x", ppu.lcdc);
-    ImGui::Text(buf);
-    sprintf(buf, "STAT = %02x", ppu.stat);
-    ImGui::Text(buf);
-    sprintf(buf, "LY = %02x", ppu.ly); 
-    ImGui::Text(buf);
-    sprintf(buf, "MODE = %d", ppu.stat & 3);
-    ImGui::Text(buf);
-    sprintf(buf, "JOYP = %02x\n", cpu.joypad.joyp());
-    ImGui::Text(buf);
+    ImGui::Text("LCDC = %02x", ppu.lcdc);
+    ImGui::Text("STAT = %02x", ppu.stat);
+    ImGui::Text("LY = %02x", ppu.ly);
+    ImGui::Text("MODE = %d", ppu.stat & 3);
+    ImGui::Text("JOYP = %02x\n", cpu.joypad.joyp());
     ImGui::End();
 }
 

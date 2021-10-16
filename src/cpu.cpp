@@ -361,39 +361,7 @@ void Cpu::instr_sbc(uint8_t v)
     z = regs[REG_A] == 0;
 }
 
-SideEffects Cpu::cycle()
-{
-    SideEffects eff{};
-    eff.cycles = 0;
-    eff.break_ = false;
-
-    if ((ie & if_) != 0) {
-        halted = false;
-    }
-
-    if (ime) {
-        uint16_t int_handlers[] = {0x40, 0x48, 0x50, 0x58, 0x60};
-        for (int i = 0; i <= 4; i++)
-        {
-            if (((ie & if_) >> i) & 1) {
-                if_ &= ~(1 << i);
-                ime = false;
-                push(pc);
-                pc = int_handlers[i];
-
-                eff.cycles = 5*4;
-                return eff;
-            }
-        }
-    }
-
-    if (halted) {
-        eff.cycles += 4;
-        return eff;
-    }
-
-    uint8_t instr = mem(pc);
-    pc++;
+void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
     switch(instr) {
         case 0x00: // NOP
@@ -449,7 +417,7 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
 
-            
+
         case 0x08: // LD (a16),SP
         {
             uint16_t a16 = mem(pc) | (mem(pc+1) << 8);
@@ -538,7 +506,7 @@ SideEffects Cpu::cycle()
             regs[REG_E] = v & 0xff;
             regs[REG_D] = v >> 8;
             eff.cycles = 8;
-            break;            
+            break;
         }
 
         case 0x14: // INC D
@@ -548,7 +516,7 @@ SideEffects Cpu::cycle()
             n = 0;
             eff.cycles = 4;
             break;
-            
+
 
         case 0x16: // LD D,d8
             regs[REG_D] = mem(pc++);
@@ -674,7 +642,7 @@ SideEffects Cpu::cycle()
             regs[REG_H] = mem(pc++);
             eff.cycles = 8;
             break;
-            
+
         case 0x27: // DAA
             daa();
             eff.cycles = 4;
@@ -777,7 +745,7 @@ SideEffects Cpu::cycle()
         }
 
         case 0x33: // INC SP
-            sp++; 
+            sp++;
             eff.cycles = 8;
             break;
 
@@ -1253,7 +1221,7 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
         }
-        
+
         case 0x9d: // SBC A,L
         {
             instr_sbc(regs[REG_H]);
@@ -1719,13 +1687,13 @@ SideEffects Cpu::cycle()
             eff.cycles = 4;
             break;
             // FIXME: bug here: the next instruction cannot be interrupted on the GB
-        
+
         case 0xfa: // LD A,(a16)
             regs[REG_A] = mem(mem(pc) | (mem(pc+1) << 8));
             pc += 2;
             eff.cycles = 16;
             break;
-        
+
         case 0xfe: // CP d8
         {
             uint8_t d8 = mem(pc++);
@@ -1745,6 +1713,42 @@ SideEffects Cpu::cycle()
         default:
             fprintf(stderr, "Unknown instruction %02x at address %04x\n", instr, pc-1);
             exit(1);
+    }
+
+}
+
+SideEffects Cpu::cycle()
+{
+    SideEffects eff{};
+    eff.cycles = 0;
+    eff.break_ = false;
+
+    if ((ie & if_) != 0) {
+        halted = false;
+    }
+
+    if (ime) {
+        uint16_t int_handlers[] = {0x40, 0x48, 0x50, 0x58, 0x60};
+        for (int i = 0; i <= 4; i++)
+        {
+            if (((ie & if_) >> i) & 1) {
+                if_ &= ~(1 << i);
+                ime = false;
+                push(pc);
+                pc = int_handlers[i];
+
+                eff.cycles = 5*4;
+                return eff;
+            }
+        }
+    }
+
+    if (halted) {
+        eff.cycles += 4;
+    } else {
+        uint8_t instr = mem(pc);
+        pc++;
+        executeInstruction(instr, eff);
     }
 
     assert(eff.cycles > 0);
