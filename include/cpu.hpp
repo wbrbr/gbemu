@@ -1,6 +1,7 @@
 #ifndef GBEMU_CPU_HPP
 #define GBEMU_CPU_HPP
 #include <stdint.h>
+#include <cstdio>
 
 struct Ppu;
 class Timer;
@@ -133,5 +134,7 @@ private:
     void execPrefix(SideEffects& eff);
     
     void instr_bit(uint8_t v, uint8_t bit);
+
+    FILE* log_file;
 };
 #endif

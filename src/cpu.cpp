@@ -111,6 +111,12 @@ Cpu::Cpu(): serial(this)
     breakpoint = 0xffff;
     halted = false;
     reset();
+
+    log_file = fopen("logfile.txt", "wb");
+    if (!log_file) {
+        perror("Failed to open logfile.txt:");
+        exit(1);
+    }
 }
 
 void Cpu::reset()
@@ -1840,6 +1846,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
+        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x)\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2));
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
