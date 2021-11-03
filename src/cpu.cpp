@@ -131,6 +131,10 @@ void Cpu::reset()
     memset(wram, 0, sizeof(wram));
     memset(hram, 0, sizeof(hram));
     memset(regs, 0, sizeof(regs));
+    regs[REG_A] = 0x01;
+    regs[REG_C] = 0x13;
+    regs[REG_E] = 0xd8;
+    regs[REG_H] = 0x01;
     serial = SerialController(this);
     if (mbc) mbc->reset();
 }
