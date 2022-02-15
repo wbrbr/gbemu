@@ -1493,8 +1493,8 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
-        case 0xf2: // LD A,(C)
-            regs[REG_A] = mem(regs[REG_C]);
+        case 0xf2: // LDH A,(C)
+            regs[REG_A] = mem(0xff00+regs[REG_C]);
             break;
 
         case 0xf3: // DI

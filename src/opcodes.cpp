@@ -245,7 +245,7 @@ void fill_opcode_table()
 
     g_opcode_table[0xE0] = { OPERAND_IMMEDIATE_8, "LDH (0x%02x),A", 12 };
     g_opcode_table[0xE1] = { OPERAND_NONE, "POP HL", 12 };
-    g_opcode_table[0xE2] = { OPERAND_NONE, "LD (C),A", 8 };
+    g_opcode_table[0xE2] = { OPERAND_NONE, "LDH (C),A", 8 };
     g_opcode_table[0xE3] = { OPERAND_NONE, "INVALID", 0 };
     g_opcode_table[0xE4] = { OPERAND_NONE, "INVALID", 0 };
     g_opcode_table[0xE5] = { OPERAND_NONE, "PUSH HL", 16 };
@@ -262,7 +262,7 @@ void fill_opcode_table()
 
     g_opcode_table[0xF0] = { OPERAND_IMMEDIATE_8, "LDH A,(0x%02x)", 12 };
     g_opcode_table[0xF1] = { OPERAND_NONE, "POP AF", 12 };
-    g_opcode_table[0xF2] = { OPERAND_NONE, "LD A,(C)", 8 };
+    g_opcode_table[0xF2] = { OPERAND_NONE, "LDH A,(C)", 8 };
     g_opcode_table[0xF3] = { OPERAND_NONE, "DI", 4 };
     g_opcode_table[0xF4] = { OPERAND_NONE, "INVALID", 0 };
     g_opcode_table[0xF5] = { OPERAND_NONE, "PUSH AF", 16 };
