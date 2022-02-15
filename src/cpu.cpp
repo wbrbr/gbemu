@@ -357,19 +357,21 @@ void Cpu::instr_add(uint8_t v)
 
 void Cpu::instr_adc(uint8_t v)
 {
+    uint8_t old_c = c;
     h = ((uint64_t)regs[REG_A] & 0xf) + ((uint64_t)v & 0xf) + ((uint64_t)c & 0xf) > 0xf;
     c = (uint64_t)regs[REG_A] + (uint64_t)v + (uint64_t)c > 0xff;
-    regs[REG_A] += v + c;
+    regs[REG_A] += v + old_c;
     z = regs[REG_A] == 0;
     n = 0;
 }
 
 void Cpu::instr_sbc(uint8_t v)
 {
-    c = v + c > regs[REG_A];
+    uint8_t old_c = c;
     h = (v & 0xf) + c > (regs[REG_A] & 0xf);
+    c = v + c > regs[REG_A];
     n = 1;
-    regs[REG_A] -= v + c;
+    regs[REG_A] -= v + old_c;
     z = regs[REG_A] == 0;
 }
 
@@ -1585,7 +1587,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
