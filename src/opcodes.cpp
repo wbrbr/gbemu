@@ -1,7 +1,9 @@
 #include "opcodes.hpp"
 #include <assert.h>
+#include <stdio.h>
 
 Opcode g_opcode_table[0x100];
+Opcode g_prefix_opcode_table[0x100];
 
 void fill_opcode_table()
 {
@@ -276,6 +278,42 @@ void fill_opcode_table()
     g_opcode_table[0xFD] = { OPERAND_NONE, "INVALID", 0 };
     g_opcode_table[0xFE] = { OPERAND_NONE, "CP %u", 8 };
     g_opcode_table[0xFF] = { OPERAND_NONE, "RST 0x38", 16 };
+
+    char regs[][5] = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
+
+    char instrs[][5] = { "RLC", "RRC", "RL", "RR", "SLA", "SRA", "SWAP", "SRL" };
+
+    for (int i = 0; i < 8; i++) {
+        for (int reg_id = 0; reg_id < 8; reg_id++) {
+            char label[20];
+            snprintf(label, 20, "%s %s", instrs[i], regs[reg_id]);
+            g_prefix_opcode_table[i*8+reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)16 : (uint8_t)8 };
+        }
+    }
+
+    for (int bit = 0; bit < 8; bit++) {
+        for (int reg_id = 0; reg_id < 8; reg_id++) {
+            char label[20];
+            snprintf(label, 20, "BIT %d,%s", bit, regs[reg_id]);
+            g_prefix_opcode_table[0x40 + 8*bit + reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)16: (uint8_t)8 };
+        }
+    }
+
+    for (int bit = 0; bit < 8; bit++) {
+        for (int reg_id = 0; reg_id < 8; reg_id++) {
+            char label[20];
+            snprintf(label, 20, "RES %d,%s", bit, regs[reg_id]);
+            g_prefix_opcode_table[0x80 + 8*bit + reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)16: (uint8_t)8 };
+        }
+    }
+
+    for (int bit = 0; bit < 8; bit++) {
+        for (int reg_id = 0; reg_id < 8; reg_id++) {
+            char label[20];
+            snprintf(label, 20, "SET %d,%s", bit, regs[reg_id]);
+            g_prefix_opcode_table[0xC0 + 8*bit + reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)16: (uint8_t)8 };
+        }
+    }
 }
 
 uint8_t get_operand_num_bytes(OperandType operand)

@@ -17,6 +17,8 @@ struct Opcode {
 };
 
 extern Opcode g_opcode_table[0x100];
+extern Opcode g_prefix_opcode_table[0x100];
+
 uint8_t get_operand_num_bytes(OperandType opcode);
 void fill_opcode_table();
 

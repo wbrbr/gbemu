@@ -1794,6 +1794,9 @@ void Cpu::execPrefix(SideEffects& eff)
 {
     uint8_t instr = mem(pc++);
     // TODO: algorithmic decoding
+
+    Opcode opcode = g_prefix_opcode_table[instr];
+    eff.cycles = opcode.cycles;
     
 
     if (instr >= 0x40 && instr <= 0x7f) { // BIT
@@ -1801,7 +1804,6 @@ void Cpu::execPrefix(SideEffects& eff)
         uint8_t bit = off / 0x8;
         uint8_t reg = off % 0x8;
         uint8_t v;
-        eff.cycles = 8;
         
         switch(reg) {
             case 0:
@@ -1830,7 +1832,6 @@ void Cpu::execPrefix(SideEffects& eff)
 
             case 6:
                 v = mem(hl());
-                eff.cycles = 16;
                 break;
 
             case 7:
@@ -1849,7 +1850,6 @@ void Cpu::execPrefix(SideEffects& eff)
         uint8_t reg = off % 0x8;
         if (reg == 6) { // (HL)
             memw(hl(), mem(hl()) & ~(1 << bit));
-            eff.cycles = 16;
         } else {
             uint8_t* v;
             switch(reg) {
@@ -1882,7 +1882,6 @@ void Cpu::execPrefix(SideEffects& eff)
                     break;
             }
             *v &= ~(1 << bit);
-            eff.cycles = 8;
         }
         return;
     }
@@ -1893,7 +1892,6 @@ void Cpu::execPrefix(SideEffects& eff)
         uint8_t reg = off % 0x8;
         if (reg == 6) { // (HL)
             memw(hl(), mem(hl()) | (1 << bit));
-            eff.cycles = 16;
         } else {
             uint8_t* v;
             switch(reg) {
@@ -1926,7 +1924,6 @@ void Cpu::execPrefix(SideEffects& eff)
                     break;
             }
             *v |= 1 << bit;
-            eff.cycles = 8;
         }
         return;
     }
@@ -1935,32 +1932,26 @@ void Cpu::execPrefix(SideEffects& eff)
 
         case 0x00: // RLC B
             instr_rlc(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x01: // RLC C
             instr_rlc(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x02: // RLC D
             instr_rlc(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x03: // RLC E
             instr_rlc(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x04: // RLC H
             instr_rlc(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x05: // RLC L
             instr_rlc(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x06: // RLC (HL)
@@ -1972,43 +1963,35 @@ void Cpu::execPrefix(SideEffects& eff)
             z = v == 0;
             n = h = 0;
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x07: // RLC A
             instr_rlc(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x08: // RRC B
             instr_rrc(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x09: // RRC C
             instr_rrc(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x0a: // RRC D
             instr_rrc(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x0b: // RRC E
             instr_rrc(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x0c: // RRC H
             instr_rrc(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x0d: // RRC L
             instr_rrc(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x0e: // RRC (HL)
@@ -2016,43 +1999,35 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_rrc(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x0f: // RRC A
             instr_rrc(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x10: // RL B
             instr_rl(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x11: // RL C
             instr_rl(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x12: // RL D
             instr_rl(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x13: // RL E
             instr_rl(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x14: // RL H
             instr_rl(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x15: // RL L
             instr_rl(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x16: // RL (HL)
@@ -2060,43 +2035,35 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_rl(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x17: // RL A
             instr_rl(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x18: // RR B
             instr_rr(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x19: // RR C
             instr_rr(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x1a: // RR D
             instr_rr(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x1b: // RR E
             instr_rr(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x1c: // RR H
             instr_rr(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x1d: // RR L
             instr_rr(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x1e: // RR (HL)
@@ -2104,43 +2071,35 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_rr(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x1f: // RR A
             instr_rr(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x20: // SLA B
             instr_sla(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x21: // SLA C
             instr_sla(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x22: // SLA D
             instr_sla(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x23: // SLA E
             instr_sla(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x24: // SLA H
             instr_sla(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x25: // SLA L
             instr_sla(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x26: // SLA (HL)
@@ -2148,43 +2107,35 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_sla(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x27: // SLA A
             instr_sla(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x28: // SRA B
             instr_sra(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x29: // SRA C
             instr_sra(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x2a: // SRA D
             instr_sra(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x2b: // SRA E
             instr_sra(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x2c: // SRA H
             instr_sra(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x2d: // SRA L
             instr_sra(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x2e: // SRA (HL)
@@ -2192,43 +2143,35 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_sra(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x2f: // SRA A
             instr_sra(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x30: // SWAP B
             instr_swap(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x31: // SWAP C
             instr_swap(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x32: // SWAP D
             instr_swap(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x33: // SWAP E
             instr_swap(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x34: // SWAP H
             instr_swap(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x35: // SWAP L
             instr_swap(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x36: // SWAP (HL)
@@ -2236,7 +2179,6 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_swap(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
@@ -2244,37 +2186,30 @@ void Cpu::execPrefix(SideEffects& eff)
             regs[REG_A] = ((regs[REG_A] & 0x0f) << 4) | ((regs[REG_A] & 0xf0) >> 4);
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0x38: // SRL B
             instr_srl(regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x39: // SRL C
             instr_srl(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x3a: // SRL D
             instr_srl(regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x3b: // SRL E
             instr_srl(regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x3c: // SRL H
             instr_srl(regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x3d: // SRL L
             instr_srl(regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x3e: // SRL (HL)
@@ -2282,356 +2217,297 @@ void Cpu::execPrefix(SideEffects& eff)
             uint8_t v = mem(hl());
             instr_srl(v);
             memw(hl(), v);
-            eff.cycles = 16;
             break;
         }
 
         case 0x3f: // SRL A
             instr_srl(regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x40: // BIT 0,B
             instr_bit(regs[REG_B], 0);
-            eff.cycles = 8;
             break;
 
         case 0x41: // BIT 0,C
             instr_bit(regs[REG_C], 0);
-            eff.cycles = 8;
             break;
 
         case 0x42: // BIT 0,D
             instr_bit(regs[REG_D], 0);
-            eff.cycles = 8;
             break;
 
         case 0x43: // BIT 0,E
             instr_bit(regs[REG_E], 0);
-            eff.cycles = 8;
             break;
 
         case 0x44: // BIT 0,H
             z = (regs[REG_H] & (1 << 0)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x45: // BIT 0,L
             z = (regs[REG_L] & (1 << 0)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x46: // BIT 0,(HL)
             z = (mem(hl()) & (1 << 0)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 16;
             break;
 
         case 0x47: // BIT 0,A
             z = (regs[REG_A] & (1 << 0)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 16;
             break;
 
         case 0x48: // BIT 1,B
             z = (regs[REG_B] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x49: // BIT 1,C
             z = (regs[REG_C] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x4a: // BIT 1,D
             z = (regs[REG_C] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x4b: // BIT 1,E
             z = (regs[REG_E] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x4c: // BIT 1,H
             z = (regs[REG_H] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x4d: // BIT 1,L
             z = (regs[REG_L] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x4e: // BIT 1,(HL)
             z = (mem(hl()) & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 16;
             break;
 
         case 0x4f: // BIT 1,A
             z = (regs[REG_A] & (1 << 1)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x50: // BIT 2,B
             z = (regs[REG_B] & (1 << 2)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x51: // BIT 2,C
             instr_bit(regs[REG_C],2);
-            eff.cycles = 8;
             break;
 
         case 0x52: // BIT 2,D
             instr_bit(regs[REG_D],2);
-            eff.cycles = 8;
             break;
 
         case 0x53: // BIT 2,E
             instr_bit(regs[REG_E],2);
-            eff.cycles = 8;
             break;
 
         case 0x54: // BIT 2,H
             instr_bit(regs[REG_H],2);
-            eff.cycles = 8;
             break;
 
         case 0x55: // BIT 2,L
             instr_bit(regs[REG_L],2);
-            eff.cycles = 8;
             break;
 
         case 0x56: // BIT 2,(HL)
             instr_bit(mem(hl()),2);
-            eff.cycles = 16;
             break;
 
         case 0x57: // BIT 2,A
             z = (regs[REG_A] & (1 << 2)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x58: // BIT 3,B
             z = (regs[REG_B] & (1 << 3)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x59: // BIT 3,C
             instr_bit(regs[REG_C], 3);
-            eff.cycles = 8;
             break;
 
         case 0x5a: // BIT 3,D
             instr_bit(regs[REG_D], 3);
-            eff.cycles = 8;
             break;
 
         case 0x5b: // BIT 3,E
             instr_bit(regs[REG_E], 3);
-            eff.cycles = 8;
             break;
 
         case 0x5c: // BIT 3,H
             instr_bit(regs[REG_H], 3);
-            eff.cycles = 8;
             break;
 
         case 0x5d: // BIT 3,L
             instr_bit(regs[REG_L], 3);
-            eff.cycles = 8;
             break;
 
         case 0x5e: // BIT 3,(HL)
             instr_bit(mem(hl()), 3);
-            eff.cycles = 16;
             break;
 
         case 0x5f: // BIT 3,A
             z = (regs[REG_A] & (1 << 3)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x60: // BIT 4,B
             z = (regs[REG_B] & (1 << 4)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x61: // BIT 4,C
             z = (regs[REG_C] & (1 << 4)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x62: // BIT 4,D
             instr_bit(regs[REG_D], 4);
-            eff.cycles = 8;
             break;
 
         case 0x63: // BIT 4,E
             instr_bit(regs[REG_E], 4);
-            eff.cycles = 8;
             break;
 
         case 0x64: // BIT 4,H
             instr_bit(regs[REG_H], 4);
-            eff.cycles = 8;
             break;
 
         case 0x65: // BIT 4,L
             instr_bit(regs[REG_L], 4);
-            eff.cycles = 8;
             break;
 
         case 0x66: // BIT 4,(HL)
             instr_bit(mem(hl()), 4);
-            eff.cycles = 16;
             break;
 
         case 0x67: // BIT 4, A
             instr_bit(regs[REG_A], 4);
-            eff.cycles = 8;
             break;
 
         case 0x68: // BIT 5,B
             z = (regs[REG_B] & (1 << 5)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x69: // BIT 5,C
             z = (regs[REG_C] & (1 << 5)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x6c: // BIT 5,H
             z = (regs[REG_H] & (1 << 5)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x6f: // BIT 5,A
             z = (regs[REG_A] & (1 << 5)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
         
         case 0x70: // BIT 6,B
             z = (regs[REG_B] & (1 << 6)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x77: // BIT 6,A
             z = (regs[REG_A] & (1 << 6)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x78: // BIT 7,B
             z = (regs[REG_B] & (1 << 7)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x79: // BIG 7,C
             z = (regs[REG_C] & (1 << 7)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x7d: // BIT 7,L
             z = (regs[REG_L] & (1 << 7)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x7e: // BIT 7,(HL)
             z = (mem(hl()) & (1 << 7)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 16;
             break;
 
         case 0x7f: // BIT 7,A
             z = (regs[REG_A] & (1 << 7)) == 0;
             n = 0;
             h = 1;
-            eff.cycles = 8;
             break;
 
         case 0x82: // RES 0,D
             regs[REG_D] &= ~1;
-            eff.cycles = 8;
             break;
 
         case 0x86: // RES 0,(HL)
             memw(hl(), mem(hl()) & ~1);
-            eff.cycles = 16;
             break;
 
         case 0x87: // RES 0,A
             regs[REG_A] &= ~1;
-            eff.cycles = 8;
             break;
 
         case 0x8e: // RES 1,(HL)
             memw(hl(), mem(hl()) & ~(1<<1));
-            eff.cycles = 16;
             break;
 
         case 0xbe: // RES 7,(HL)
             memw(hl(), mem(hl()) & ~(1<<7));
-            eff.cycles = 16;
             break;
 
         case 0xfe: // SET 7,(HL)
             memw(hl(), mem(hl()) | (1 << 7));
-            eff.cycles = 16;
             break;
 
 
