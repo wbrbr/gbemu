@@ -4,6 +4,8 @@
 #include <timer.hpp>
 #include "cpu.hpp"
 #include "ppu.hpp"
+#include "opcodes.hpp"
+#include "disas.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl2.h"
@@ -56,7 +58,15 @@ void drawInstrWindow(Cpu& cpu)
 {
     ImGui::Begin("Instructions");
     char buf[20];
-    for (uint16_t i = cpu.pc - 2; i < cpu.pc + 10; i++)
+
+    uint16_t pc = cpu.pc;
+    for (int i = 0; i < 10; i++) {
+        uint16_t old_pc = pc;
+        disassemble(cpu, pc, buf, 20);
+        char b = (old_pc == cpu.breakpoint) ? '*' : ' ';
+        ImGui::Text("%c %04x %s", b, old_pc, buf);
+    }
+    /* for (uint16_t i = cpu.pc - 2; i < cpu.pc + 10; i++)
     {
         char b;
         if (i == cpu.pc ) b = '>';
@@ -64,7 +74,8 @@ void drawInstrWindow(Cpu& cpu)
         else b = ' ';
         sprintf(buf, "%c %04x %02x", b, i, cpu.mem(i));
         ImGui::Text(buf);
-    }
+    } */
+
     ImGui::Separator();
     ImGui::InputScalar("Breakpoint", ImGuiDataType_U16, &cpu.breakpoint, NULL, NULL, "%04x", ImGuiInputTextFlags_CharsHexadecimal);
     ImGui::End();
@@ -268,6 +279,8 @@ int main(int argc, char** argv)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     SDL_Event e;
+
+    fill_opcode_table();
 
     Cpu cpu;
     cpu.load(argv[1]);

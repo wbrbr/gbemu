@@ -77,7 +77,7 @@ struct SerialController
 struct JoypadController
 {
     JoypadController();
-    uint8_t joyp();
+    uint8_t joyp() const;
     bool select_buttons;
     uint8_t buttons_state;
     uint8_t directions_state;
@@ -97,7 +97,7 @@ struct Cpu
     uint16_t de();
     uint16_t hl();
 
-    uint8_t mem(uint16_t a, bool bypass = false);
+    uint8_t mem(uint16_t a, bool bypass = false) const;
     bool memw(uint16_t a, uint8_t v);
     void push(uint16_t v);
     uint8_t pop8();

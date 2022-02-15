@@ -12,8 +12,9 @@ Ppu::Ppu()
 void Ppu::reset()
 {
     lcdc = 0x91;
+    ly = 0x90;
     stat = 0x85;
-    scx = scy = ly = lyc = dma = bgp = obp0 = obp1 = wx = wy = 0;
+    scx = scy = lyc = dma = bgp = obp0 = obp1 = wx = wy = 0;
     cycle_count = 0;
     memset(vram, 0, sizeof(vram));
     memset(oam, 0, sizeof(oam));

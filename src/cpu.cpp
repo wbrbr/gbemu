@@ -181,7 +181,7 @@ void Cpu::load(const char* path)
     mbc->load(cartridge, size);
 }
 
-uint8_t Cpu::mem(uint16_t a, bool bypass)
+uint8_t Cpu::mem(uint16_t a, bool bypass) const
 {
     if (a <= 0x7FFF) return mbc->mem(a);
     if (a <= 0x9FFF) {
@@ -1850,7 +1850,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x)\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2));
+        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
@@ -2682,7 +2682,7 @@ JoypadController::JoypadController()
     directions_state = 0b11101111;
 }
 
-uint8_t JoypadController::joyp()
+uint8_t JoypadController::joyp() const
 {
     return select_buttons ? buttons_state : directions_state;
 }
