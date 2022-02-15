@@ -90,7 +90,6 @@ struct Cpu
     void load(const char* path);
     void reset();
     SideEffects cycle();
-    void disas(uint16_t addr, char* buf);
 
     uint16_t af();
     uint16_t bc();

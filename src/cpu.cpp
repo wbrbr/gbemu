@@ -5,6 +5,8 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "timer.hpp"
+#include "opcodes.hpp"
+#include "util.hpp"
 
 Mbc::~Mbc() {};
 
@@ -379,20 +381,20 @@ void Cpu::instr_rst(uint16_t addr)
 
 void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
+    Opcode opcode = g_opcode_table[instr];
+    eff.cycles = opcode.cycles;
+
     switch(instr) {
         case 0x00: // NOP
-            eff.cycles = 4;
             break;
 
         case 0x01: // LD BC, d16
             regs[REG_C] = mem(pc++);
             regs[REG_B] = mem(pc++);
-            eff.cycles = 12;
             break;
 
         case 0x02: // LD (BC), A
             memw(bc(), regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x03: // INC BC
@@ -400,7 +402,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = bc()+1;
             regs[REG_B] = v >> 8;
             regs[REG_C] = v & 0xff;
-            eff.cycles = 8;
             break;
         }
 
@@ -409,7 +410,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = ((regs[REG_B] & 0xf) == 0xf);
             n = 0;
             regs[REG_B]++;
-            eff.cycles = 4;
             break;
 
         case 0x05: // DEC B
@@ -417,12 +417,10 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_B] & 0xF) == 0;
             n = 1;
             regs[REG_B]--;
-            eff.cycles = 4;
             break;
 
         case 0x06: // LD B,d8
             regs[REG_B] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x07: // RLCA
@@ -430,7 +428,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_A] <<= 1;
             regs[REG_A] |= c;
             z = n = h = 0;
-            eff.cycles = 4;
             break;
 
 
@@ -440,7 +437,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             memw(a16, sp & 0xff);
             memw(a16+1, sp >> 8);
             pc += 2;
-            eff.cycles = 20;
             break;
         }
 
@@ -452,13 +448,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
             n = 0;
-            eff.cycles = 8;
             break;
         }
 
         case 0x0a: // LD A,(BC)
             regs[REG_A] = mem(bc());
-            eff.cycles = 8;
             break;
 
         case 0x0b: // DEC BC
@@ -466,7 +460,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = bc()-1;
             regs[REG_B] = v >> 8;
             regs[REG_C] = v & 0xFF;
-            eff.cycles = 8;
             break;
         }
 
@@ -476,7 +469,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = ((regs[REG_C] & 0xf) == 0xf);
             n = 0;
             regs[REG_C]++;
-            eff.cycles = 4;
             break;
 
         case 0x0d: // DEC C
@@ -484,36 +476,30 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_C] & 0xF) == 0;
             n = 1;
             regs[REG_C]--;
-            eff.cycles = 4;
             break;
 
         case 0x0e: // LD C,d8
             regs[REG_C] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x0f: // RRCA
             c = regs[REG_A] & 1;
             regs[REG_A] >>= 1;
             z = h = n = 0;
-            eff.cycles = 4;
             break;
 
         case 0x10: // STOP
             pc++;
-            eff.cycles = 4;
             break;
             // TODO: wait for interrupt
 
         case 0x11: // LD DE,d16
             regs[REG_E] = mem(pc++);
             regs[REG_D] = mem(pc++);
-            eff.cycles = 12;
             break;
 
         case 0x12: // LD (DE),A
             memw(de(), regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x13: // INC DE
@@ -521,7 +507,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = de() + 1;
             regs[REG_E] = v & 0xff;
             regs[REG_D] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
@@ -530,23 +515,19 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_D]++;
             z = regs[REG_D] == 0;
             n = 0;
-            eff.cycles = 4;
             break;
 
 
         case 0x16: // LD D,d8
             regs[REG_D] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x1A: // LD A,(DE)
             regs[REG_A] = mem(de());
-            eff.cycles = 8;
             break;
 
         case 0x18: // JR r8
-            pc += (int8_t)mem(pc)+1;
-            eff.cycles = 12;
+            pc += unsigned_to_signed(mem(pc))+1;
             break;
 
         case 0x19: // ADD HL,DE
@@ -557,7 +538,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
             n = 0;
-            eff.cycles = 8;
             break;
         }
 
@@ -566,7 +546,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = de() - 1;
             regs[REG_E] = v & 0xff;
             regs[REG_D] = v >> 8;
-            eff.cycles = 4;
             break;
         }
 
@@ -575,7 +554,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_E]++;
             z = regs[REG_E] == 0;
             n = 0;
-            eff.cycles = 4;
             break;
 
         case 0x1d: // DEC E
@@ -583,12 +561,10 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_E] & 0xF) == 0;
             regs[REG_E]--;
             z = regs[REG_E] == 0;
-            eff.cycles = 4;
             break;
 
         case 0x1e: // LD E,d8
             regs[REG_E] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x1f: // RRA
@@ -598,13 +574,12 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_A] >>= 1;
             regs[REG_A] |= (tmp << 7);
             z = n = h = 0;
-            eff.cycles = 8;
             break;
         }
 
         case 0x20: // JR NZ,r8
             if (!z) {
-                pc += (int8_t)mem(pc)+1;
+                pc += unsigned_to_signed(mem(pc))+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -615,7 +590,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0x21: // LD HL,d16
             regs[REG_L] = mem(pc++);
             regs[REG_H] = mem(pc++);
-            eff.cycles = 12;
             break;
 
         case 0x22: // LD (HL+),A
@@ -624,7 +598,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()+1;
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
@@ -633,7 +606,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()+1;
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
@@ -642,7 +614,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_H]++;
             z = regs[REG_H] == 0;
             n = 0;
-            eff.cycles = 4;
             break;
 
         case 0x25: // DEC H
@@ -650,23 +621,20 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_H] & 0xF) == 0;
             n = 1;
             regs[REG_H]--;
-            eff.cycles = 4;
             break;
 
 
         case 0x26: // LD H,d8
             regs[REG_H] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x27: // DAA
             daa();
-            eff.cycles = 4;
             break;
 
         case 0x28: // JR Z,r8
             if (z) {
-                pc += (int8_t)mem(pc)+1;
+                pc += unsigned_to_signed(mem(pc))+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -682,7 +650,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
             n = 0;
-            eff.cycles = 8;
             break;
         }
 
@@ -692,7 +659,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()+1;
             regs[REG_L] = v & 0xFF;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
@@ -701,7 +667,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()-1;
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
@@ -710,7 +675,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_L]++;
             z = regs[REG_L] == 0;
             n = 0;
-            eff.cycles = 4;
             break;
 
         case 0x2d: // DEC L
@@ -718,24 +682,21 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_L] & 0xF) == 0;
             regs[REG_L]--;
             z = regs[REG_L] == 0;
-            eff.cycles = 4;
             break;
 
         case 0x2e: // LD L,d8
             regs[REG_L] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x2f: // CPL
             regs[REG_A] ^= 0xff;
             n = 1;
             h = 1;
-            eff.cycles = 4;
             break;
 
         case 0x30: // JR NC,r8
             if (!c) {
-                pc += (int8_t)mem(pc)+1;
+                pc += unsigned_to_signed(mem(pc))+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -746,7 +707,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0x31: // LD SP,d16
             sp = mem(pc) | (mem(pc+1) << 8);
             pc += 2;
-            eff.cycles = 12;
             break;
 
 
@@ -756,13 +716,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()-1;
             regs[REG_L] = v & 0xFF;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
         case 0x33: // INC SP
             sp++;
-            eff.cycles = 8;
             break;
 
         case 0x34: // INC (HL)
@@ -772,7 +730,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = ((v & 0xf) == 0xf);
             n = 0;
             memw(hl(), v+1);
-            eff.cycles = 12;
             break;
         }
 
@@ -783,18 +740,16 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (v & 0xF) == 0;
             n = 1;
             memw(hl(), v-1);
-            eff.cycles = 12;
             break;
         }
 
         case 0x36: // LD (HL),d8
             memw(hl(), mem(pc++));
-            eff.cycles = 12;
             break;
 
         case 0x38: // JR C,r8
             if (c) {
-                pc += (int8_t)mem(pc)+1;
+                pc += unsigned_to_signed(mem(pc))+1;
                 eff.cycles = 12;
             } else {
                 pc++;
@@ -810,7 +765,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
             n = 0;
-            eff.cycles = 8;
             break;
         }
 
@@ -821,13 +775,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             uint16_t v = hl()-1;
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
-            eff.cycles = 8;
             break;
         }
 
         case 0x3b: // DEC SP
             sp--;
-            eff.cycles = 8;
             break;
 
         case 0x3c: // INC A
@@ -835,7 +787,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_A]++;
             z = regs[REG_A] == 0;
             n = 0;
-            eff.cycles = 4;
             break;
 
         case 0x3d: // DEC A
@@ -843,370 +794,296 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             h = (regs[REG_A] & 0xF) == 0;
             regs[REG_A]--;
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0x3e: // LD A,d8
             regs[REG_A] = mem(pc++);
-            eff.cycles = 8;
             break;
 
         case 0x40: // LD B,B
-            eff.cycles = 4;
             break;
 
         case 0x41: // LD B,C
             regs[REG_B] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x42: // LD B,D
             regs[REG_B] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x43: // LD B,E
             regs[REG_B] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x44: // LD B,H
             regs[REG_B] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x45: // LD B,L
             regs[REG_B] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x46: // LD B,(HL)
             regs[REG_B] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x47: // LD B,A
             regs[REG_B] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x48: // LD C,B
             regs[REG_C] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x49: // LD C,C
-            eff.cycles = 4;
             break;
 
         case 0x4a: // LD C,D
             regs[REG_C] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x4b: // LD C,E
             regs[REG_C] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x4c: // LD C,H
             regs[REG_C] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x4d: // LD C,L
             regs[REG_C] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x4e: // LD C,(HL)
             regs[REG_C] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x4f: // LD C,A
             regs[REG_C] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x50: // LD D,B
             regs[REG_D] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x51: // LD D,C
             regs[REG_D] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x52: // LD D,D
-            eff.cycles = 4;
             break;
 
         case 0x53: // LD D,E
             regs[REG_D] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x54: // LD D,H
             regs[REG_D] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x55: // LD D,L
             regs[REG_D] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x56: // LD D,(HL)
             regs[REG_D] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x57: // LD D,A
             regs[REG_D] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x58: // LD E,B
             regs[REG_E] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x59: // LD E,C
             regs[REG_E] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x5a: // LD E,D
             regs[REG_E] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x5b: // LD E,E
-            eff.cycles = 4;
             break;
 
         case 0x5c: // LD E,H
             regs[REG_E] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x5d: // LD E,L
             regs[REG_E] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x5e: // LD E,(HL)
             regs[REG_E] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x5f: // LD E,A
             regs[REG_E] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x60: // LD H,B
             regs[REG_H] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x61: // LD H,C
             regs[REG_H] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x62: // LD H,D
             regs[REG_H] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x63: // LD H,E
             regs[REG_H] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x64: // LD H,H
-            eff.cycles = 4;
             break;
 
         case 0x65: // LD H,L
             regs[REG_H] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x66: // LD H,(HL)
             regs[REG_H] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x67: // LD H,A
             regs[REG_H] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x68: // LD L,B
             regs[REG_L] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x69: // LD L,C
             regs[REG_L] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x6a: // LD L,D
             regs[REG_L] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x6b: // LD L,E
             regs[REG_L] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x6c: // LD L,H
             regs[REG_L] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x6d: // LD L,L
-            eff.cycles = 4;
             break;
 
         case 0x6e: // LD L,(HL)
             regs[REG_L] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x6f: // LD L,A
             regs[REG_L] = regs[REG_A];
-            eff.cycles = 4;
             break;
 
         case 0x70: // LD (HL),B
             memw(hl(), regs[REG_B]);
-            eff.cycles = 8;
             break;
 
         case 0x71: // LD (HL),C
             memw(hl(), regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0x72: // LD (HL),D
             memw(hl(), regs[REG_D]);
-            eff.cycles = 8;
             break;
 
         case 0x73: // LD (HL),E
             memw(hl(), regs[REG_E]);
-            eff.cycles = 8;
             break;
 
         case 0x74: // LD (HL),H
             memw(hl(), regs[REG_H]);
-            eff.cycles = 8;
             break;
 
         case 0x75: // LD (HL),L
             memw(hl(), regs[REG_L]);
-            eff.cycles = 8;
             break;
 
         case 0x76: // HALT
             halted = true;
-            eff.cycles = 4;
             break;
 
         case 0x77: // LD (HL),A
             memw(hl(), regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0x78: // LD A,B
             regs[REG_A] = regs[REG_B];
-            eff.cycles = 4;
             break;
 
         case 0x79: // LD A,C
             regs[REG_A] = regs[REG_C];
-            eff.cycles = 4;
             break;
 
         case 0x7a: // LD A,D
             regs[REG_A] = regs[REG_D];
-            eff.cycles = 4;
             break;
 
         case 0x7b: // LD A,E
             regs[REG_A] = regs[REG_E];
-            eff.cycles = 4;
             break;
 
         case 0x7c: // LD A,H
             regs[REG_A] = regs[REG_H];
-            eff.cycles = 4;
             break;
 
         case 0x7d: // LD A,L
             regs[REG_A] = regs[REG_L];
-            eff.cycles = 4;
             break;
 
         case 0x7e: // LD A,(HL)
             regs[REG_A] = mem(hl());
-            eff.cycles = 8;
             break;
 
         case 0x7f: // LD A,A
-            eff.cycles = 4;
             break;
 
         case 0x80: // ADD A,B
             instr_add(regs[REG_B]);
-            eff.cycles = 4;
             break;
 
         case 0x81: // ADD A,C
             instr_add(regs[REG_C]);
-            eff.cycles = 4;
             break;
 
         case 0x82: // ADD A,D
             instr_add(regs[REG_D]);
-            eff.cycles = 4;
             break;
 
         case 0x85: // ADD A,L
             instr_add(regs[REG_L]);
-            eff.cycles = 4;
             break;
 
         case 0x86: // ADD A,(HL)
         {
             instr_add(mem(hl()));
-            eff.cycles = 8;
             break;
         }
 
         case 0x87: // ADD A,A
             instr_add(REG_A);
-            eff.cycles = 4;
             break;
 
         case 0x89: // ADC A,C
         {
             instr_adc(regs[REG_C]);
-            eff.cycles = 4;
             break;
         }
 
         case 0x8e: // ADC A,(HL)
         {
             instr_adc(mem(hl()));
-            eff.cycles = 8;
             break;
         }
 
@@ -1216,7 +1093,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             n = 1;
             regs[REG_A] -= regs[REG_C];
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0x96: // SUB (HL)
@@ -1227,35 +1103,30 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             n = 1;
             regs[REG_A] -= v;
             z = regs[REG_A] == 0;
-            eff.cycles = 8;
             break;
         }
 
         case 0x9c: // SBC A,H
         {
             instr_sbc(regs[REG_H]);
-            eff.cycles = 4;
             break;
         }
 
         case 0x9d: // SBC A,L
         {
             instr_sbc(regs[REG_H]);
-            eff.cycles = 4;
             break;
         }
 
         case 0x9e: // SBC A,(HL)
         {
             instr_sbc(mem(hl()));
-            eff.cycles = 8;
             break;
         }
 
         case 0x9f: // SBC A,A
         {
             instr_sbc(regs[REG_A]);
-            eff.cycles = 4;
             break;
         }
 
@@ -1264,7 +1135,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa1: // AND C
@@ -1272,7 +1142,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa2: // AND D
@@ -1280,7 +1149,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa3: // AND E
@@ -1288,7 +1156,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa4: // AND H
@@ -1296,7 +1163,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa5: // AND L
@@ -1304,7 +1170,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa6: // AND (HL)
@@ -1312,42 +1177,36 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_A] == 0;
             h = 1;
             n = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xa7: // AND A
             n = c = 0;
             h = 1;
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0xa8: // XOR B
             regs[REG_A] ^= regs[REG_C];
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xa9: // XOR C
             regs[REG_A] ^= regs[REG_C];
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xad: // XOR L
             regs[REG_A] ^= regs[REG_C];
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xae: // XOR (HL)
             regs[REG_A] ^= mem(hl());
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xaf: // XOR A
@@ -1356,41 +1215,35 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             c = 0;
             n = 0;
             h = 0;
-            eff.cycles = 4;
             break;
 
         case 0xb0: // OR B
             regs[REG_A] |= regs[REG_B];
             n = c = h = 0;
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0xb1: // OR C
             regs[REG_A] = regs[REG_A] | regs[REG_C];
             n = c = h = 0;
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0xb2: // OR D
             regs[REG_A] = regs[REG_A] | regs[REG_D];
             n = c = h = 0;
             z = regs[REG_A] == 0;
-            eff.cycles = 4;
             break;
 
         case 0xb6: // OR (HL)
             regs[REG_A] |= mem(hl());
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xb7: // OR A
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 4;
             break;
 
         case 0xb9: // CP C
@@ -1398,7 +1251,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_C] == regs[REG_A];
             n = 1;
             h = (regs[REG_C] & 0xF) > (regs[REG_A] & 0xF);
-            eff.cycles = 4;
             break;
 
         case 0xbb: // CP E
@@ -1406,7 +1258,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_E] == regs[REG_A];
             n = 1;
             h = (regs[REG_E] & 0xF) > (regs[REG_A] & 0xF);
-            eff.cycles = 4;
             break;
 
         case 0xbc: // CP H
@@ -1414,7 +1265,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = regs[REG_H] == regs[REG_A];
             n = 1;
             h = (regs[REG_H] & 0xF) > (regs[REG_A] & 0xF);
-            eff.cycles = 4;
             break;
 
         case 0xbe: // CP (HL)
@@ -1424,7 +1274,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = v == regs[REG_A];
             n = 1;
             h = (v & 0xF) > (regs[REG_A] & 0xF);
-            eff.cycles = 8;
             break;
         }
 
@@ -1441,22 +1290,18 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0xc1: // POP BC
             regs[REG_C] = pop8();
             regs[REG_B] = pop8();
-            eff.cycles = 12;
             break;
 
         case 0xc2: // JP NZ,a16
             if (!z) {
                 pc = mem(pc) | (mem(pc+1) << 8);
-                eff.cycles = 16;
             } else {
                 pc += 2;
-                eff.cycles = 12;
             }
             break;
 
         case 0xc3: // JP a16
             pc = mem(pc) | (mem(pc+1) << 8);
-            eff.cycles = 16;
             break;
 
         case 0xc4: // CALL NZ,a16
@@ -1472,19 +1317,16 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xc5: // PUSH BC
             push(bc());
-            eff.cycles = 16;
             break;
 
         case 0xc6: // ADD A,d8
         {
             instr_add(mem(pc++));
-            eff.cycles = 8;
             break;
         }
 
         case 0xc7: // RST 00H
             instr_rst(0);
-            eff.cycles = 16;
             break;
 
         case 0xc8: // RET Z
@@ -1498,7 +1340,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xc9: // RET
             pc = pop16();
-            eff.cycles = 16;
             break;
 
         case 0xca: // JP Z,a16
@@ -1528,7 +1369,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0xcd: // CALL a16
             push(pc+2);
             pc = mem(pc) | (mem(pc+1) << 8);
-            eff.cycles = 16;
             break;
 
         case 0xce: // ADC A,d8
@@ -1539,13 +1379,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             regs[REG_A] += v;
             z = regs[REG_A] == 0;
             n = 0;
-            eff.cycles = 8;
             break;
         }
 
         case 0xcf: // RST 08H
             instr_rst(0x08);
-            eff.cycles = 16;
             break;
 
         case 0xd0: // RET NC
@@ -1560,7 +1398,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0xd1: // POP DE
             regs[REG_E] = pop8();
             regs[REG_D] = pop8();
-            eff.cycles = 12;
             break;
 
         case 0xd2: // JP NC,a16
@@ -1586,7 +1423,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xd5: // PUSH DE
             push(de());
-            eff.cycles = 16;
             break;
 
         case 0xd6: // SUB d8
@@ -1597,13 +1433,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             n = 1;
             regs[REG_A] -= d8;
             z = regs[REG_A] == 0;
-            eff.cycles = 8;
             break;
         }
 
         case 0xd7: // RST 10H
             instr_rst(0x10);
-            eff.cycles = 16;
             break;
 
         case 0xd8: // RET C
@@ -1619,7 +1453,6 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0xd9: // RETI
             ime = true;
             pc = pop16();
-            eff.cycles = 16;
             break;
 
         case 0xda: // JP C,a16
@@ -1645,33 +1478,27 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xde: // SBC A,d8
             instr_sbc(mem(pc++));
-            eff.cycles = 8;
             break;
 
         case 0xdf: // RST 18H
             instr_rst(0x18);
-            eff.cycles = 16;
             break;
 
         case 0xe0: // LD ($ff00+a8),A
             memw(0xff00 + mem(pc++), regs[REG_A]);
-            eff.cycles = 12;
             break;
 
         case 0xe1: // POP HL
             regs[REG_L] = pop8();
             regs[REG_H] = pop8();
-            eff.cycles = 12;
             break;
 
         case 0xe2: // LD ($ff00+C),A
             memw(0xff00+regs[REG_C], regs[REG_A]);
-            eff.cycles = 8;
             break;
 
         case 0xe5: // PUSH HL
             push(hl());
-            eff.cycles = 16;
             break;
 
         case 0xe6: // AND d8
@@ -1680,52 +1507,44 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             n = 0;
             h = 1;
             c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xe7: // RST 20H
             instr_rst(0x20);
-            eff.cycles = 16;
             break;
 
         case 0xea: // LD (a16),A
             memw(mem(pc) | (mem(pc+1) << 8), regs[REG_A]);
             pc += 2;
-            eff.cycles = 16;
             break;
 
         case 0xe8: // ADD SP,r8
         {
-            int16_t r8 = (int8_t)mem(pc++);
+            int16_t r8 = unsigned_to_signed(mem(pc++));
             c = (sp & 0xff) + (r8 & 0xff) > 0xff;
             h = (sp & 0xf) + (r8 & 0xf) > 0xf;
             z = n = 0;
             sp += r8;
-            eff.cycles = 16;
             break;
         }
 
         case 0xe9: // JP HL
             pc = hl();
-            eff.cycles = 4;
             break;
 
         case 0xee: // XOR d8
             regs[REG_A] ^= mem(pc++);
             z = regs[REG_A] == 0;
             n = h = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xef: // RST $28
             instr_rst(0x28);
-            eff.cycles = 16;
             break;
 
 
         case 0xf0: // LD A,($ff00+a8)
             regs[REG_A] = mem(0xff00+mem(pc++));
-            eff.cycles = 12;
             break;
 
         case 0xf1: // POP AF
@@ -1736,66 +1555,56 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             n = (f >> 6) & 1;
             h = (f >> 5) & 1;
             c = (f >> 4) & 1;
-            eff.cycles = 12;
             break;
         }
 
         case 0xf2: // LD A,(C)
             regs[REG_A] = mem(regs[REG_C]);
-            eff.cycles = 8;
             break;
 
         case 0xf3: // DI
             ime = false;
-            eff.cycles = 4;
             break;
 
         case 0xf5: // PUSH AF
             push(af());
-            eff.cycles = 16;
             break;
 
         case 0xf6: // OR d8
             regs[REG_A] |= mem(pc++);
             z = regs[REG_A] == 0;
             h = n = c = 0;
-            eff.cycles = 8;
             break;
 
         case 0xf7: // RST 30H
             instr_rst(0x30);
-            eff.cycles = 16;
             break;
 
         case 0xf8: // LD HL,SP+r8
         {
-            int16_t r8 = (int8_t)mem(pc++);
+            int16_t r8 = unsigned_to_signed(mem(pc++));
             c = (sp & 0xff) + (r8 & 0xff) > 0xff;
             h = (sp & 0xf) + (r8 & 0xf) > 0xf;
             z = n = 0;
             uint16_t v = sp+r8;
             regs[REG_L] = v & 0xff;
             regs[REG_H] = v >> 8;
-            eff.cycles = 12;
             break;
         }
 
         case 0xf9: // LD SP,HL
             sp = hl();
-            eff.cycles = 8;
             break;
 
 
         case 0xfb: // EI
             ime = true;
-            eff.cycles = 4;
             break;
             // FIXME: bug here: the next instruction cannot be interrupted on the GB
 
         case 0xfa: // LD A,(a16)
             regs[REG_A] = mem(mem(pc) | (mem(pc+1) << 8));
             pc += 2;
-            eff.cycles = 16;
             break;
 
         case 0xfe: // CP d8
@@ -1805,13 +1614,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             z = d8 == regs[REG_A];
             n = 1;
             h = (d8 & 0xF) > (regs[REG_A] & 0xF);
-            eff.cycles = 8;
             break;
         }
 
         case 0xff: // RST 38H
             instr_rst(0x38);
-            eff.cycles = 16;
             break;
 
         default:
@@ -1864,145 +1671,6 @@ SideEffects Cpu::cycle()
 
     if (pc == breakpoint) eff.break_ = true;
     return eff;
-}
-
-void Cpu::disas(uint16_t addr, char* buf)
-{
-    uint8_t instr = mem(addr);
-    uint8_t op8 = mem(addr+1);
-    uint16_t op16 = (mem(addr+2) << 8) | mem(addr+1);
-    switch(instr) {
-        case 0x0:
-            sprintf(buf, "NOP");
-            break;
-
-        case 0x1:
-            sprintf(buf, "LD BC,0x%04x", op16);
-            break;
-
-        case 0x2:
-            sprintf(buf, "LD (BC),A");
-            break;
-
-        case 0x3:
-            sprintf(buf, "INC BC");
-            break;
-
-        case 0x4:
-            sprintf(buf, "INC B");
-            break;
-
-        case 0x5:
-            sprintf(buf, "DEC B");
-            break;
-
-        case 0x6:
-            sprintf(buf, "LD B,%02x", op8);
-            break;
-
-        case 0x7:
-            sprintf(buf, "RLCA");
-            break;
-
-        case 0x8:
-            sprintf(buf, "LD (%04x),SP", op16);
-            break;
-
-        case 0x9:
-            sprintf(buf, "ADD HL,BC");
-            break;
-
-        case 0xa:
-            sprintf(buf, "LD A,(BC)");
-            break;
-
-        case 0xb:
-            sprintf(buf, "DEC BC");
-            break;
-
-        case 0xc:
-            sprintf(buf, "INC C");
-            break;
-
-        case 0xd:
-            sprintf(buf, "DEC C");
-            break;
-
-        case 0xe:
-            sprintf(buf, "LD C,%02x", op8);
-            break;
-
-        case 0xf:
-            sprintf(buf, "RRCA");
-            break;
-
-        case 0x10:
-            sprintf(buf, "STOP 0");
-            break;
-
-        case 0x11:
-            sprintf(buf, "LD DE,%04x", op16);
-            break;
-
-        case 0x12:
-            sprintf(buf, "LD (DE),A");
-            break;
-
-        case 0x13:
-            sprintf(buf, "INC DE");
-            break;
-
-        case 0x14:
-            sprintf(buf, "INC D");
-            break;
-
-        case 0x15:
-            sprintf(buf, "DEC D");
-            break;
-
-        case 0x16:
-            sprintf(buf, "LD D,%02x", op8);
-            break;
-
-        case 0x17:
-            sprintf(buf, "RLA");
-            break;
-
-        case 0x18:
-            sprintf(buf, "JR %d", (int8_t)op8);
-            break;
-
-        case 0x19:
-            sprintf(buf, "ADD HL,DE");
-            break;
-
-        case 0x1a:
-            sprintf(buf, "LD A,(DE)");
-            break;
-
-        case 0x1b:
-            sprintf(buf, "DEC DE");
-            break;
-
-        case 0x1c:
-            sprintf(buf, "INC E");
-            break;
-
-        case 0x1d:
-            sprintf(buf, "DEC E");
-            break;
-
-        case 0x1e:
-            sprintf(buf, "LD E,%02x", op8);
-            break;
-
-        case 0x1f:
-            sprintf(buf, "RRA");
-            break;
-            
-        case 0x20:
-            sprintf(buf, "JR NZ,%d", (int8_t)op8);
-    }
 }
 
 void Cpu::execPrefix(SideEffects& eff)

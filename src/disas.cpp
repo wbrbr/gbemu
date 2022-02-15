@@ -3,13 +3,7 @@
 #include <string.h>
 #include "disas.hpp"
 #include "opcodes.hpp"
-
-int8_t unsigned_to_signed(uint8_t x)
-{
-    int8_t ret;
-    memcpy(&ret, &x, 1);
-    return ret;
-}
+#include "util.hpp"
 
 void disassemble(const Cpu& cpu, uint16_t& pc, char* buf, unsigned int buf_size)
 {
