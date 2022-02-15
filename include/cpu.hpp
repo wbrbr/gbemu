@@ -135,6 +135,14 @@ private:
     void instr_xor(uint8_t v);
     void instr_or(uint8_t v);
     void instr_cp(uint8_t v);
+    void instr_rl(uint8_t& v);
+    void instr_rlc(uint8_t& v);
+    void instr_rrc(uint8_t& v);
+    void instr_rr(uint8_t& v);
+    void instr_sla(uint8_t& v);
+    void instr_swap(uint8_t& v);
+    void instr_srl(uint8_t& v);
+    void instr_sra(uint8_t& v);
     void daa();
     void executeInstruction(uint8_t instr, SideEffects& eff);
     void execPrefix(SideEffects& eff);
