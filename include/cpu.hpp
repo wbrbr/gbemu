@@ -128,6 +128,13 @@ private:
     void instr_adc(uint8_t v);
     void instr_sbc(uint8_t v);
     void instr_rst(uint16_t addr);
+    void instr_inc8(uint8_t& v);
+    void instr_dec8(uint8_t& v);
+    void instr_sub(uint8_t v);
+    void instr_and(uint8_t v);
+    void instr_xor(uint8_t v);
+    void instr_or(uint8_t v);
+    void instr_cp(uint8_t v);
     void daa();
     void executeInstruction(uint8_t instr, SideEffects& eff);
     void execPrefix(SideEffects& eff);

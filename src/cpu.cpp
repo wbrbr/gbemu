@@ -357,8 +357,8 @@ void Cpu::instr_add(uint8_t v)
 
 void Cpu::instr_adc(uint8_t v)
 {
-    h = (regs[REG_A] & 0xf) + (v & 0xf) + (c & 0xf) > 0xf;
-    c = regs[REG_A] + v + c> 0xff;
+    h = ((uint64_t)regs[REG_A] & 0xf) + ((uint64_t)v & 0xf) + ((uint64_t)c & 0xf) > 0xf;
+    c = (uint64_t)regs[REG_A] + (uint64_t)v + (uint64_t)c > 0xff;
     regs[REG_A] += v + c;
     z = regs[REG_A] == 0;
     n = 0;
@@ -377,6 +377,61 @@ void Cpu::instr_rst(uint16_t addr)
 {
     push(pc);
     pc = addr;
+}
+
+void Cpu::instr_inc8(uint8_t &v)
+{
+    z = (v == 0xff);
+    n = 0;
+    h = ((v & 0x0f) == 0x0f);
+    v++;
+}
+
+void Cpu::instr_dec8(uint8_t& v)
+{
+    z = (v == 1);
+    n = 1;
+    h = ((v & 0x0f) == 0);
+    v--;
+}
+
+void Cpu::instr_sub(uint8_t v)
+{
+    c = v > regs[REG_A];
+    h = (v & 0xf) > (regs[REG_A] & 0xf);
+    n = 1;
+    regs[REG_A] -= v;
+    z = regs[REG_A] == 0;
+}
+
+void Cpu::instr_and(uint8_t v)
+{
+    regs[REG_A] &= v;
+    z = regs[REG_A] == 0;
+    h = 1;
+    n = c = 0;
+}
+
+void Cpu::instr_xor(uint8_t v)
+{
+    regs[REG_A] ^= v;
+    z = (regs[REG_A] == 0);
+    n = h = c = 0;
+}
+
+void Cpu::instr_or(uint8_t v)
+{
+    regs[REG_A] |= v;
+    n = c = h = 0;
+    z = regs[REG_A] == 0;
+}
+
+void Cpu::instr_cp(uint8_t v)
+{
+    c = v > regs[REG_A];
+    z = v == regs[REG_A];
+    n = 1;
+    h = (v & 0xF) > (regs[REG_A] & 0xF);
 }
 
 void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
@@ -406,17 +461,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x04: // INC B
-            z = regs[REG_B] == 0xff;
-            h = ((regs[REG_B] & 0xf) == 0xf);
-            n = 0;
-            regs[REG_B]++;
+            instr_inc8(regs[REG_B]);
             break;
 
         case 0x05: // DEC B
-            z = regs[REG_B] == 1;
-            h = (regs[REG_B] & 0xF) == 0;
-            n = 1;
-            regs[REG_B]--;
+            instr_dec8(regs[REG_B]);
             break;
 
         case 0x06: // LD B,d8
@@ -442,7 +491,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x09: // ADD HL,BC
         {
-            c = hl() + bc() > 0xffff;
+            c = (uint64_t)hl() + (uint64_t)bc() > 0xffff;
             h = (hl() & 0xfff) + (bc() & 0xfff) > 0xfff;
             uint16_t v = hl() + bc();
             regs[REG_L] = v & 0xff;
@@ -465,17 +514,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
 
         case 0x0c: // INC C
-            z = regs[REG_C] == 0xff;
-            h = ((regs[REG_C] & 0xf) == 0xf);
-            n = 0;
-            regs[REG_C]++;
+            instr_inc8(regs[REG_C]);
             break;
 
         case 0x0d: // DEC C
-            z = regs[REG_C] == 1;
-            h = (regs[REG_C] & 0xF) == 0;
-            n = 1;
-            regs[REG_C]--;
+            instr_dec8(regs[REG_C]);
             break;
 
         case 0x0e: // LD C,d8
@@ -511,10 +554,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x14: // INC D
-            h = (regs[REG_D] & 0xf) == 0xf;
-            regs[REG_D]++;
-            z = regs[REG_D] == 0;
-            n = 0;
+            instr_inc8(regs[REG_D]);
             break;
 
 
@@ -532,7 +572,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x19: // ADD HL,DE
         {
-            c = hl() + de() > 0xffff;
+            c = (uint64_t)hl() + (uint64_t)de() > 0xffff;
             h = (hl() & 0xfff) + (de() & 0xfff) > 0xfff;
             uint16_t v = hl() + de();
             regs[REG_L] = v & 0xff;
@@ -550,17 +590,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x1c: // INC E
-            h = (regs[REG_E] & 0xf) == 0xf;
-            regs[REG_E]++;
-            z = regs[REG_E] == 0;
-            n = 0;
+            instr_inc8(regs[REG_E]);
             break;
 
         case 0x1d: // DEC E
-            n = 1;
-            h = (regs[REG_E] & 0xF) == 0;
-            regs[REG_E]--;
-            z = regs[REG_E] == 0;
+            instr_dec8(regs[REG_E]);
             break;
 
         case 0x1e: // LD E,d8
@@ -610,17 +644,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x24: // INC H
-            h = (regs[REG_H] & 0xF) == 0xF;
-            regs[REG_H]++;
-            z = regs[REG_H] == 0;
-            n = 0;
+            instr_inc8(regs[REG_H]);
             break;
 
         case 0x25: // DEC H
-            z = regs[REG_H] == 1;
-            h = (regs[REG_H] & 0xF) == 0;
-            n = 1;
-            regs[REG_H]--;
+            instr_dec8(regs[REG_H]);
             break;
 
 
@@ -644,7 +672,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x29: // ADD HL,HL
         {
-            c = hl() + hl() > 0xffff;
+            c = (uint64_t)hl() + (uint64_t)hl() > 0xffff;
             h = (hl() & 0xfff) + (hl() & 0xfff) > 0xfff;
             uint16_t v = hl() + hl();
             regs[REG_L] = v & 0xff;
@@ -671,17 +699,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x2c: // INC L
-            h = (regs[REG_L] & 0xF) == 0xF;
-            regs[REG_L]++;
-            z = regs[REG_L] == 0;
-            n = 0;
+            instr_inc8(regs[REG_L]);
             break;
 
         case 0x2d: // DEC L
-            n = 1;
-            h = (regs[REG_L] & 0xF) == 0;
-            regs[REG_L]--;
-            z = regs[REG_L] == 0;
+            instr_dec8(regs[REG_L]);
             break;
 
         case 0x2e: // LD L,d8
@@ -759,7 +781,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x39: // ADD HL,SP
         {
-            c = hl() + sp > 0xffff;
+            c = (uint64_t)hl() + (uint64_t)sp > 0xffff;
             h = (hl() & 0xfff) + (sp & 0xfff) > 0xfff;
             uint16_t v = hl() + sp;
             regs[REG_L] = v & 0xff;
@@ -783,17 +805,11 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0x3c: // INC A
-            h = (regs[REG_A] & 0xF) == 0xF;
-            regs[REG_A]++;
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_inc8(regs[REG_A]);
             break;
 
         case 0x3d: // DEC A
-            n = 1;
-            h = (regs[REG_A] & 0xF) == 0;
-            regs[REG_A]--;
-            z = regs[REG_A] == 0;
+            instr_dec8(regs[REG_A]);
             break;
 
         case 0x3e: // LD A,d8
@@ -1088,21 +1104,12 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         }
 
         case 0x91: // SUB C
-            c = regs[REG_C] > regs[REG_A];
-            h = (regs[REG_C] & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= regs[REG_C];
-            z = regs[REG_A] == 0;
+            instr_sub(regs[REG_C]);
             break;
 
         case 0x96: // SUB (HL)
         {
-            uint8_t v = mem(hl());
-            c = v > regs[REG_A];
-            h = (v & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= v;
-            z = regs[REG_A] == 0;
+            instr_sub(mem(hl()));
             break;
         }
 
@@ -1114,7 +1121,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0x9d: // SBC A,L
         {
-            instr_sbc(regs[REG_H]);
+            instr_sbc(regs[REG_L]);
             break;
         }
 
@@ -1130,150 +1137,93 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
         }
 
-        case 0xa0: // AND
-            regs[REG_A] &= regs[REG_B];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+        case 0xa0: // AND B
+            instr_and(regs[REG_B]);
             break;
 
         case 0xa1: // AND C
-            regs[REG_A] &= regs[REG_C];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(regs[REG_C]);
             break;
 
         case 0xa2: // AND D
-            regs[REG_A] &= regs[REG_D];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(regs[REG_D]);
             break;
 
         case 0xa3: // AND E
-            regs[REG_A] &= regs[REG_E];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(regs[REG_E]);
             break;
 
         case 0xa4: // AND H
-            regs[REG_A] &= regs[REG_H];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(regs[REG_H]);
             break;
 
         case 0xa5: // AND L
-            regs[REG_A] &= regs[REG_L];
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(regs[REG_L]);
             break;
 
         case 0xa6: // AND (HL)
-            regs[REG_A] &= mem(hl());
-            z = regs[REG_A] == 0;
-            h = 1;
-            n = c = 0;
+            instr_and(mem(hl()));
             break;
 
         case 0xa7: // AND A
-            n = c = 0;
-            h = 1;
-            z = regs[REG_A] == 0;
+            instr_and(regs[REG_A]);
             break;
 
         case 0xa8: // XOR B
-            regs[REG_A] ^= regs[REG_C];
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_xor(regs[REG_B]);
             break;
 
         case 0xa9: // XOR C
-            regs[REG_A] ^= regs[REG_C];
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_xor(regs[REG_C]);
             break;
 
         case 0xad: // XOR L
-            regs[REG_A] ^= regs[REG_C];
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_xor(regs[REG_L]);
             break;
 
         case 0xae: // XOR (HL)
-            regs[REG_A] ^= mem(hl());
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_xor(mem(hl()));
             break;
 
         case 0xaf: // XOR A
-            regs[REG_A] = 0;
-            z = 1;
-            c = 0;
-            n = 0;
-            h = 0;
+            instr_xor(regs[REG_A]);
             break;
 
         case 0xb0: // OR B
-            regs[REG_A] |= regs[REG_B];
-            n = c = h = 0;
-            z = regs[REG_A] == 0;
+            instr_or(regs[REG_B]);
             break;
 
         case 0xb1: // OR C
-            regs[REG_A] = regs[REG_A] | regs[REG_C];
-            n = c = h = 0;
-            z = regs[REG_A] == 0;
+            instr_or(regs[REG_C]);
             break;
 
         case 0xb2: // OR D
-            regs[REG_A] = regs[REG_A] | regs[REG_D];
-            n = c = h = 0;
-            z = regs[REG_A] == 0;
+            instr_or(regs[REG_D]);
             break;
 
         case 0xb6: // OR (HL)
-            regs[REG_A] |= mem(hl());
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_or(mem(hl()));
             break;
 
         case 0xb7: // OR A
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_or(regs[REG_A]);
             break;
 
         case 0xb9: // CP C
-            c = regs[REG_C] > regs[REG_A];
-            z = regs[REG_C] == regs[REG_A];
-            n = 1;
-            h = (regs[REG_C] & 0xF) > (regs[REG_A] & 0xF);
+            instr_cp(regs[REG_C]);
             break;
 
         case 0xbb: // CP E
-            c = regs[REG_E] > regs[REG_A];
-            z = regs[REG_E] == regs[REG_A];
-            n = 1;
-            h = (regs[REG_E] & 0xF) > (regs[REG_A] & 0xF);
+            instr_cp(regs[REG_E]);
             break;
 
         case 0xbc: // CP H
-            c = regs[REG_H] > regs[REG_A];
-            z = regs[REG_H] == regs[REG_A];
-            n = 1;
-            h = (regs[REG_H] & 0xF) > (regs[REG_A] & 0xF);
+            instr_cp(regs[REG_H]);
             break;
 
         case 0xbe: // CP (HL)
         {
-            uint8_t v = mem(hl());
-            c = v > regs[REG_A];
-            z = v == regs[REG_A];
-            n = 1;
-            h = (v & 0xF) > (regs[REG_A] & 0xF);
+            instr_cp(mem(hl()));
             break;
         }
 
@@ -1373,12 +1323,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xce: // ADC A,d8
         {
-            uint8_t v = mem(pc++) + c;
-            h = (regs[REG_A] & 0xf) + (v & 0xf) > 0xf;
-            c = regs[REG_A] + v > 0xff;
-            regs[REG_A] += v;
-            z = regs[REG_A] == 0;
-            n = 0;
+            instr_adc(mem(pc++));
             break;
         }
 
@@ -1426,15 +1371,8 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0xd6: // SUB d8
-        {
-            uint8_t d8 = mem(pc++);
-            c = d8 > regs[REG_A];
-            h = (d8 & 0xf) > (regs[REG_A] & 0xf);
-            n = 1;
-            regs[REG_A] -= d8;
-            z = regs[REG_A] == 0;
+            instr_sub(mem(pc++));
             break;
-        }
 
         case 0xd7: // RST 10H
             instr_rst(0x10);
@@ -1502,11 +1440,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0xe6: // AND d8
-            regs[REG_A] &= mem(pc++);
-            z = regs[REG_A] == 0;
-            n = 0;
-            h = 1;
-            c = 0;
+            instr_and(mem(pc++));
             break;
 
         case 0xe7: // RST 20H
@@ -1520,9 +1454,10 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xe8: // ADD SP,r8
         {
-            int16_t r8 = unsigned_to_signed(mem(pc++));
-            c = (sp & 0xff) + (r8 & 0xff) > 0xff;
-            h = (sp & 0xf) + (r8 & 0xf) > 0xf;
+            uint16_t u8 = mem(pc++);
+            int16_t r8 = unsigned_to_signed(u8);
+            c = (sp & 0xff) + (u8 & 0xff) > 0xff;
+            h = (sp & 0xf) + (u8 & 0xf) > 0xf;
             z = n = 0;
             sp += r8;
             break;
@@ -1533,9 +1468,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0xee: // XOR d8
-            regs[REG_A] ^= mem(pc++);
-            z = regs[REG_A] == 0;
-            n = h = c = 0;
+            instr_xor(mem(pc++));
             break;
 
         case 0xef: // RST $28
@@ -1571,9 +1504,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
             break;
 
         case 0xf6: // OR d8
-            regs[REG_A] |= mem(pc++);
-            z = regs[REG_A] == 0;
-            h = n = c = 0;
+            instr_or(mem(pc++));
             break;
 
         case 0xf7: // RST 30H
@@ -1582,9 +1513,10 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xf8: // LD HL,SP+r8
         {
-            int16_t r8 = unsigned_to_signed(mem(pc++));
-            c = (sp & 0xff) + (r8 & 0xff) > 0xff;
-            h = (sp & 0xf) + (r8 & 0xf) > 0xf;
+            uint16_t u8 = mem(pc++);
+            int16_t r8 = unsigned_to_signed(u8);
+            c = (sp & 0xff) + (u8 & 0xff) > 0xff;
+            h = (sp & 0xf) + (u8 & 0xf) > 0xf;
             z = n = 0;
             uint16_t v = sp+r8;
             regs[REG_L] = v & 0xff;
@@ -1609,11 +1541,7 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
 
         case 0xfe: // CP d8
         {
-            uint8_t d8 = mem(pc++);
-            c = d8 > regs[REG_A];
-            z = d8 == regs[REG_A];
-            n = 1;
-            h = (d8 & 0xF) > (regs[REG_A] & 0xF);
+            instr_cp(mem(pc++));
             break;
         }
 
@@ -1657,7 +1585,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
