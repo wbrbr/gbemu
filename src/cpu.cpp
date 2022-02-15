@@ -1774,7 +1774,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
@@ -2011,6 +2011,15 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x0e: // RRC (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_rrc(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
+
         case 0x0f: // RRC A
             instr_rrc(regs[REG_A]);
             eff.cycles = 8;
@@ -2045,6 +2054,15 @@ void Cpu::execPrefix(SideEffects& eff)
             instr_rl(regs[REG_L]);
             eff.cycles = 8;
             break;
+
+        case 0x16: // RL (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_rl(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
 
         case 0x17: // RL A
             instr_rl(regs[REG_A]);
@@ -2081,6 +2099,15 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x1e: // RR (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_rr(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
+
         case 0x1f: // RR A
             instr_rr(regs[REG_A]);
             eff.cycles = 8;
@@ -2115,6 +2142,15 @@ void Cpu::execPrefix(SideEffects& eff)
             instr_sla(regs[REG_L]);
             eff.cycles = 8;
             break;
+
+        case 0x26: // SLA (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_sla(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
 
         case 0x27: // SLA A
             instr_sla(regs[REG_A]);
@@ -2151,6 +2187,15 @@ void Cpu::execPrefix(SideEffects& eff)
             eff.cycles = 8;
             break;
 
+        case 0x2e: // SRA (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_sra(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
+
         case 0x2f: // SRA A
             instr_sra(regs[REG_A]);
             eff.cycles = 8;
@@ -2185,6 +2230,15 @@ void Cpu::execPrefix(SideEffects& eff)
             instr_swap(regs[REG_L]);
             eff.cycles = 8;
             break;
+
+        case 0x36: // SWAP (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_swap(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
 
         case 0x37: // SWAP A
             regs[REG_A] = ((regs[REG_A] & 0x0f) << 4) | ((regs[REG_A] & 0xf0) >> 4);
@@ -2222,6 +2276,15 @@ void Cpu::execPrefix(SideEffects& eff)
             instr_srl(regs[REG_L]);
             eff.cycles = 8;
             break;
+
+        case 0x3e: // SRL (HL)
+        {
+            uint8_t v = mem(hl());
+            instr_srl(v);
+            memw(hl(), v);
+            eff.cycles = 16;
+            break;
+        }
 
         case 0x3f: // SRL A
             instr_srl(regs[REG_A]);
