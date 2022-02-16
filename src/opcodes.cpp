@@ -295,7 +295,7 @@ void fill_opcode_table()
         for (int reg_id = 0; reg_id < 8; reg_id++) {
             char label[20];
             snprintf(label, 20, "BIT %d,%s", bit, regs[reg_id]);
-            g_prefix_opcode_table[0x40 + 8*bit + reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)16: (uint8_t)8 };
+            g_prefix_opcode_table[0x40 + 8*bit + reg_id] = { OPERAND_NONE, label, (reg_id == 6) ? (uint8_t)12: (uint8_t)8 };
         }
     }
 
