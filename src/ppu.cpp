@@ -47,15 +47,17 @@ void Ppu::exec(uint8_t cycles)
                 // TODO: renderLine()
                 uint32_t values[] = { 0xffd0f8e0, 0xff70c088, 0xff566834, 0xff201808 };
 
-                for (int x = 0; x < 160; x++)
+                for (uint8_t x = 0; x < 160; x++)
                 {
-                    int tile_x = x / 8;
-                    int tile_y = ly / 8;
-                    // TODO: palette, addressing modes, scrolling
+                    uint8_t bg_x = scx + x;
+                    uint8_t bg_y = scy + ly;
+                    uint8_t tile_x = bg_x / 8;
+                    uint8_t tile_y = bg_y / 8;
+                    // TODO: palette, addressing modes
                     int tile_num = (lcdc & (1 << 4)) ? vram[0x1800 + tile_y * 32 + tile_x] : (int8_t)vram[0x1800+tile_y*32+tile_x];
 
-                    int x_off = x % 8;
-                    int y_off = ly % 8;
+                    int x_off = bg_x % 8;
+                    int y_off = bg_y % 8;
                     int offset = (lcdc & (1 << 4)) ? 0 : 0x1000;
                     uint8_t b1 = vram[offset + tile_num * 16 + 2*y_off];
                     uint8_t b2 = vram[offset + tile_num * 16 + 2*y_off+1];
