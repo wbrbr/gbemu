@@ -83,7 +83,6 @@ void Mbc1::memw(uint16_t a, uint8_t v)
         return;
     }
     if (a >= 0x2000 && a <= 0x3fff) {
-        printf("0x%04x: %u\n", a,  v);
         rom_bank = v & 0b00011111;
         if (rom_bank == 0) rom_bank = 1;
         //printf("Rom bank: %u\n", rom_bank);
