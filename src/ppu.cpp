@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <assert.h>
 
+constexpr uint8_t OBJ_ENABLE_BIT = 1 << 1;
+constexpr uint8_t OBJ_SIZE_BIT = 1 << 2;
+constexpr uint8_t BG_MAP_ADDRESSING_BIT = 1 << 3;
+constexpr uint8_t TILE_DATA_ADDRESSING_BIT = 1 << 4;
+constexpr uint8_t WINDOW_ENABLE_BIT = 1 << 5;
+constexpr uint8_t WINDOW_MAP_ADDRESSING_BIT = 1 << 6;
+constexpr uint8_t LCD_ENABLE_BIT = 1 << 7;
+
 Ppu::Ppu()
 {
     cpu = nullptr;
@@ -24,7 +32,7 @@ void Ppu::reset()
 
 void Ppu::exec(uint8_t cycles)
 {
-    if ((lcdc & (1 << 7)) == 0) return;
+    if ((lcdc & LCD_ENABLE_BIT) == 0) return;
     cycle_count += cycles;
     switch(stat & 0x3) {
         case MODE_OAM_SEARCH:
@@ -50,23 +58,36 @@ void Ppu::exec(uint8_t cycles)
 
                 for (uint8_t x = 0; x < 160; x++)
                 {
-                    uint8_t bg_x = scx + x;
-                    uint8_t bg_y = scy + ly;
-                    uint8_t tile_x = bg_x / 8;
-                    uint8_t tile_y = bg_y / 8;
-                    // TODO: palette, addressing modes
-                    int tilemap_off = (lcdc & (1 << 3)) ? 0x1c00 : 0x1800;
                     uint8_t tile_num;
-                    if (lcdc & (1 << 3)) {
-                        tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                    uint8_t x_off, y_off;
+                    if ((lcdc & WINDOW_ENABLE_BIT) &&  x >= wx && ly >= wy) {
+                        uint8_t win_x = x-wx;
+                        uint8_t win_y = ly-wy;
+                        uint8_t tile_x = win_x / 8;
+                        uint8_t tile_y = win_y / 8;
+                        x_off = win_x % 8;
+                        y_off = win_y % 8;
+                        if (lcdc & WINDOW_MAP_ADDRESSING_BIT) {
+                            tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                        } else {
+                            tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                        }
                     } else {
-                        tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                        uint8_t bg_x = scx+x;
+                        uint8_t bg_y = scy+ly;
+                        uint8_t tile_x = bg_x / 8;
+                        uint8_t tile_y = bg_y / 8;
+                        x_off = bg_x % 8;
+                        y_off = bg_y % 8;
+                        if (lcdc & BG_MAP_ADDRESSING_BIT) {
+                            tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                        } else {
+                            tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                        }
                     }
 
-                    int x_off = bg_x % 8;
-                    int y_off = bg_y % 8;
                     uint8_t b1, b2;
-                    if (lcdc & (1 << 4)) {
+                    if (lcdc & TILE_DATA_ADDRESSING_BIT) {
                         b1 = vram[tile_num * 16 + 2*y_off];
                         b2 = vram[tile_num * 16 + 2*y_off+1];
                     } else {
@@ -85,7 +106,7 @@ void Ppu::exec(uint8_t cycles)
                         int sp_yoff = ly - sprite_y;
                         int sp_xoff =  x - (int)oam[4*i+1] + 8;
                         uint8_t sp_flags = oam[4*i+3];
-                        int sprite_height = lcdc & (1 << 2) ? 16 : 8;
+                        int sprite_height = lcdc & OBJ_SIZE_BIT ? 16 : 8;
 
                         if (sp_yoff >= 0 && sp_yoff < sprite_height && sp_xoff >= 0 && sp_xoff < 8) {
                             tile_num = oam[4*i+2];
