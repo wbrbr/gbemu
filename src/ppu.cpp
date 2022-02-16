@@ -63,7 +63,8 @@ void Ppu::exec(uint8_t cycles)
                     uint8_t b2 = vram[offset + tile_num * 16 + 2*y_off+1];
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
-                    uint8_t col = palette(bgp, lsb | (msb << 1));
+                    uint8_t bg_col_id = lsb | (msb << 1);
+                    uint8_t col = palette(bgp, bg_col_id);
                     
                     // TODO: priority, obj-to-bg priority...
                     for (int i = 0; i < 40; i++)
@@ -83,15 +84,28 @@ void Ppu::exec(uint8_t cycles)
                             b2 = vram[tile_num * 16 + 2*sp_yoff+1];
                             lsb = (b1 >> (7 - sp_xoff)) & 1;
                             msb = (b2 >> (7 - sp_xoff)) & 1;
-                            col = palette((oam[4*i+3] >> 4) & 1 ? obp1 : obp0, lsb | (msb << 1));
+                            uint8_t col_id = lsb | (msb << 1);
+                            uint8_t obj_col = palette((sp_flags >> 4) & 1 ? obp1 : obp0, lsb | (msb << 1));
+
+                            bool hidden = false;
+                            if (sp_flags & (1 << 7)) { // BG/window over OBJ
+                                if (bg_col_id != 0) hidden = true;
+                            } else {
+                                if (col_id == 0) hidden = true;
+                            }
+                            if (!hidden) {
+                                col = obj_col;
+                            }
                             break;
                         }
                     }
 
-                    framebuf[ly*160+x] = values[col];
+                    if (ly < 144) {
+                        framebuf[ly*160+x] = values[col];
+                    }
                 }
                 ly++;
-                if (ly == 144) {
+                if (ly >= 144) {
                     stat &= ~(0b11);
                     stat |= MODE_VBLANK;
                     cpu->if_ |= 1;
