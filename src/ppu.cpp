@@ -1,5 +1,6 @@
 #include "ppu.hpp"
 #include "cpu.hpp"
+#include "util.hpp"
 #include <stdio.h>
 #include <assert.h>
 
@@ -54,13 +55,24 @@ void Ppu::exec(uint8_t cycles)
                     uint8_t tile_x = bg_x / 8;
                     uint8_t tile_y = bg_y / 8;
                     // TODO: palette, addressing modes
-                    int tile_num = (lcdc & (1 << 4)) ? vram[0x1800 + tile_y * 32 + tile_x] : (int8_t)vram[0x1800+tile_y*32+tile_x];
+                    int tilemap_off = (lcdc & (1 << 3)) ? 0x1c00 : 0x1800;
+                    uint8_t tile_num;
+                    if (lcdc & (1 << 3)) {
+                        tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                    } else {
+                        tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                    }
 
                     int x_off = bg_x % 8;
                     int y_off = bg_y % 8;
-                    int offset = (lcdc & (1 << 4)) ? 0 : 0x1000;
-                    uint8_t b1 = vram[offset + tile_num * 16 + 2*y_off];
-                    uint8_t b2 = vram[offset + tile_num * 16 + 2*y_off+1];
+                    uint8_t b1, b2;
+                    if (lcdc & (1 << 4)) {
+                        b1 = vram[tile_num * 16 + 2*y_off];
+                        b2 = vram[tile_num * 16 + 2*y_off+1];
+                    } else {
+                        b1 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off];
+                        b2 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off+1];
+                    }
                     uint8_t lsb = (b1 >> (7 - x_off)) & 1;
                     uint8_t msb = (b2 >> (7 - x_off)) & 1;
                     uint8_t bg_col_id = lsb | (msb << 1);
