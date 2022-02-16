@@ -12,6 +12,11 @@ constexpr uint8_t WINDOW_ENABLE_BIT = 1 << 5;
 constexpr uint8_t WINDOW_MAP_ADDRESSING_BIT = 1 << 6;
 constexpr uint8_t LCD_ENABLE_BIT = 1 << 7;
 
+constexpr uint8_t PALETTE_NUMBER_BIT = 1 << 4;
+constexpr uint8_t FLIP_X_BIT = 1 << 5;
+constexpr uint8_t FLIP_Y_BIT = 1 << 6;
+constexpr uint8_t BG_OVER_OBJ_BIT = 1 << 7;
+
 Ppu::Ppu()
 {
     cpu = nullptr;
@@ -111,8 +116,8 @@ void Ppu::exec(uint8_t cycles)
                         if (sp_yoff >= 0 && sp_yoff < sprite_height && sp_xoff >= 0 && sp_xoff < 8) {
                             tile_num = oam[4*i+2];
 
-                            if (sp_flags & (1 << 5)) sp_xoff = 7 - sp_xoff;
-                            if (sp_flags & (1 << 6)) sp_yoff = sprite_height - 1 - sp_yoff;
+                            if (sp_flags & FLIP_X_BIT) sp_xoff = 7 - sp_xoff;
+                            if (sp_flags & FLIP_Y_BIT) sp_yoff = sprite_height - 1 - sp_yoff;
                             b1 = vram[tile_num * 16 + 2*sp_yoff];
                             b2 = vram[tile_num * 16 + 2*sp_yoff+1];
                             lsb = (b1 >> (7 - sp_xoff)) & 1;
@@ -121,7 +126,7 @@ void Ppu::exec(uint8_t cycles)
                             uint8_t obj_col = palette((sp_flags >> 4) & 1 ? obp1 : obp0, lsb | (msb << 1));
 
                             bool hidden = false;
-                            if (sp_flags & (1 << 7)) { // BG/window over OBJ
+                            if (sp_flags & BG_OVER_OBJ_BIT) { // BG/window over OBJ
                                 if (bg_col_id != 0) hidden = true;
                             } else {
                                 if (col_id == 0) hidden = true;
@@ -166,12 +171,12 @@ void Ppu::exec(uint8_t cycles)
 
 bool Ppu::vramaccess()
 {
-    return ((lcdc & (1 << 7)) == 0) || ((stat & 3) < 3);
+    return ((lcdc & LCD_ENABLE_BIT) == 0) || ((stat & 3) < 3);
 }
 
 bool Ppu::oamaccess()
 {
-    return ((lcdc & (1 << 7)) == 0) || ((stat & 3) < 2);
+    return ((lcdc & LCD_ENABLE_BIT) == 0) || ((stat & 3) < 2);
 }
 
 uint8_t Ppu::palette(uint8_t p, uint8_t i)
