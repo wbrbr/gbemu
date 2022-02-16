@@ -42,7 +42,11 @@ void Mbc0::memw(uint16_t a, uint8_t v)
 Mbc1::Mbc1()
 {
     rom = (uint8_t*)calloc(1, 0x200000);
-    reset();
+    ram = (uint8_t*)calloc(1, 0x8000);
+    ram_enabled = false;
+    rom_bank = 1;
+    ram_bank = 1;
+    bank_mode = 0;
 }
 
 void Mbc1::load(uint8_t* cartridge, unsigned int size)
@@ -52,7 +56,7 @@ void Mbc1::load(uint8_t* cartridge, unsigned int size)
 
 void Mbc1::reset()
 {
-    memset(ram, 0, sizeof(ram));
+    memset(ram, 0, 0x8000);
     ram_enabled = false;
     rom_bank = 1;
     ram_bank = 0;
@@ -68,6 +72,7 @@ uint8_t Mbc1::mem(uint16_t a)
     if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
         return ram[0x2000*ram_bank + a - 0xa000];
     }
+
     return 0xff;
 }
 
@@ -78,10 +83,10 @@ void Mbc1::memw(uint16_t a, uint8_t v)
         return;
     }
     if (a >= 0x2000 && a <= 0x3fff) {
-        uint8_t low = v & 0b00011111;
-        if (low == 0) low = 1;
-        rom_bank &= 0b11100000;
-        rom_bank |= low;
+        printf("0x%04x: %u\n", a,  v);
+        rom_bank = v & 0b00011111;
+        if (rom_bank == 0) rom_bank = 1;
+        //printf("Rom bank: %u\n", rom_bank);
         return;
     }
     if (a >= 0x4000 && a <= 0x5fff) {
@@ -137,6 +142,7 @@ void Cpu::reset()
     regs[REG_C] = 0x13;
     regs[REG_E] = 0xd8;
     regs[REG_H] = 0x01;
+    regs[REG_L] = 0x4d;
     serial = SerialController(this);
     if (mbc) mbc->reset();
 }
@@ -170,10 +176,12 @@ void Cpu::load(const char* path)
     {
         case 0x00:
             mbc = new Mbc0();
+            puts("MCB0");
             break;
 
         case 0x01:
             mbc = new Mbc1();
+            puts("MBC1");
             break;
 
         default:
@@ -236,7 +244,10 @@ uint8_t Cpu::mem(uint16_t a, bool bypass) const
 bool Cpu::memw(uint16_t a, uint8_t v)
 {
     bool b = false;
-    if (a <= 0x7FFF) return b;
+    if (a <= 0x7FFF) {
+        mbc->memw(a, v);
+        return b;
+    }
     if (a <= 0x9FFF) {
         if (!ppu->vramaccess()) return b;
         ppu->vram[a - 0x8000] = v;
@@ -1774,7 +1785,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);

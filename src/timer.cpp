@@ -7,6 +7,8 @@ Timer::Timer()
     tima = 0;
     tma = 0;
     tac = 0;
+    cycles_since_div_increment = 0;
+    cycles_since_tima_increment = 0;
 }
 
 void Timer::update(uint8_t cycles, Cpu& cpu)

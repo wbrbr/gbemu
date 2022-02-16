@@ -57,7 +57,7 @@ struct Mbc1: public Mbc
     uint8_t bank_mode;
 
     uint8_t* rom;
-    uint8_t ram[0x8000];
+    uint8_t* ram;
 };
 
 struct Cpu;
