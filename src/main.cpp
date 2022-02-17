@@ -1,6 +1,7 @@
 #include "glad/glad.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#include <QApplication>
 #include <timer.hpp>
 #include "cpu.hpp"
 #include "ppu.hpp"
@@ -9,6 +10,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl2.h"
+#include "debugwindow.hpp"
 
 enum ExecMode {
     MODE_RUN,
@@ -303,6 +305,11 @@ int main(int argc, char** argv)
     const int CYCLES_PER_FRAME = 4194304 / 60;
     uint64_t instr_num = 0;
     Inputs inputs;
+
+    QApplication app(argc, argv);
+    DebugWindow debug_window;
+    debug_window.show();
+    app.exec();
 
     while (running) {
 
