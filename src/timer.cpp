@@ -3,10 +3,10 @@
 
 Timer::Timer()
 {
-    div = 0;
+    div = 0x18;
     tima = 0;
     tma = 0;
-    tac = 0;
+    tac = 0xf8;
     cycles_since_div_increment = 0;
     cycles_since_tima_increment = 0;
 }
@@ -14,8 +14,8 @@ Timer::Timer()
 void Timer::update(uint8_t cycles, Cpu& cpu)
 {
     cycles_since_div_increment += cycles;
-    if (cycles_since_div_increment >= 256) {
-        cycles_since_div_increment %= 256;
+    while (cycles_since_div_increment >= 256) {
+        cycles_since_div_increment -= 256;
         div++;
     }
 
@@ -44,8 +44,8 @@ void Timer::update(uint8_t cycles, Cpu& cpu)
                 assert(0);
         }
 
-        if (cycles_since_tima_increment >= cycles_num) {
-            cycles_since_tima_increment %= cycles_num;
+        while (cycles_since_tima_increment >= cycles_num) {
+            cycles_since_tima_increment -= cycles_num;
             if (tima == 0xff) {
                 tima = tma;
                 cpu.if_ |= (1 << 2);
