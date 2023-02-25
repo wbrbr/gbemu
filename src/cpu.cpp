@@ -130,7 +130,7 @@ void Cpu::reset()
     pc = 0x100;
     sp = 0xFFFE;
     ie = 0;
-    if_ = 0;
+    if_ = 0xe1;
     ime = true;
     z = h = c = 1;
     n = 0;
@@ -184,7 +184,7 @@ void Cpu::load(const char* path)
             break;
 
         default:
-            fprintf(stderr, "Unsupported MBC\n");
+            fprintf(stderr, "Unsupported MBC: %02x\n", cartridge[0x147]);
             exit(1);
     }
     mbc->load(cartridge, size);
@@ -276,11 +276,11 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF00: joypad.select_buttons = (v & (1 << 5)) == 0; break;
             case 0xFF01: serial.sb = v; printf("%c", v); break;
             case 0xFF02: serial.sc = v; break;
-            case 0xFF04: timer->div = v; break;
+            case 0xFF04: timer->div = 0; break;
             case 0xFF05: timer->tima = v; break;
             case 0xFF06: timer->tma = v; break;
             case 0xFF07: timer->tac = v; break;
-            case 0xFF0F: if_ = v; break;
+            case 0xFF0F: if_ = v | (1 << 5) | (1 << 6) | (1 << 7); break;
             case 0xFF40: ppu->lcdc = v; break;
             case 0xFF41: assert((v & 0xF) == 0); ppu->stat = v; break; // TODO: only change top bits
             case 0xFF42: ppu->scy = v; break;
@@ -1443,13 +1443,16 @@ void Cpu::executeInstruction(uint8_t instr, SideEffects& eff) {
         case 0xc2: // JP NZ,a16
             if (!z) {
                 pc = mem(pc) | (mem(pc+1) << 8);
+                eff.cycles = 16;
             } else {
                 pc += 2;
+                eff.cycles = 12;
             }
             break;
 
         case 0xc3: // JP a16
             pc = mem(pc) | (mem(pc+1) << 8);
+            eff.cycles = 16;
             break;
 
         case 0xc4: // CALL NZ,a16
@@ -1784,7 +1787,7 @@ SideEffects Cpu::cycle()
     if (halted) {
         eff.cycles += 4;
     } else {
-        fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
         uint8_t instr = mem(pc);
         pc++;
         executeInstruction(instr, eff);
@@ -2280,7 +2283,7 @@ SerialController::SerialController(Cpu* cpu)
     remaining = 0;
     remaining_bits = 0;
     sb = 0;
-    sc = 0;
+    sc = 0x7e;
 }
 
 void SerialController::exec(uint8_t cycles)
