@@ -8,7 +8,6 @@
 void disassemble(const Cpu& cpu, uint16_t& pc, char* buf, unsigned int buf_size)
 {
     uint8_t instr = cpu.mem(pc);
-    if (instr >= 0x60) instr = 0x00;
     Opcode op = g_opcode_table[instr];
     uint8_t operand_size = get_operand_num_bytes(op.operand);
 
