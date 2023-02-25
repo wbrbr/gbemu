@@ -276,7 +276,7 @@ void fill_opcode_table()
     g_opcode_table[0xFB] = { OPERAND_NONE, "EI", 4 };
     g_opcode_table[0xFC] = { OPERAND_NONE, "INVALID", 0 };
     g_opcode_table[0xFD] = { OPERAND_NONE, "INVALID", 0 };
-    g_opcode_table[0xFE] = { OPERAND_NONE, "CP %u", 8 };
+    g_opcode_table[0xFE] = { OPERAND_IMMEDIATE_8, "CP %u", 8 };
     g_opcode_table[0xFF] = { OPERAND_NONE, "RST 0x38", 16 };
 
     char regs[][5] = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
