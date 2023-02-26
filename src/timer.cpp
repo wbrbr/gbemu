@@ -7,20 +7,18 @@ Timer::Timer()
     tima = 0;
     tma = 0;
     tac = 0xf8;
-    cycles_since_div_increment = 0;
-    cycles_since_tima_increment = 0;
+
+    internal_timer = 0;
 }
 
 void Timer::update(uint8_t cycles, Cpu& cpu)
 {
-    cycles_since_div_increment += cycles;
-    while (cycles_since_div_increment >= 256) {
-        cycles_since_div_increment -= 256;
-        div++;
-    }
+    unsigned int prev_internal_timer = internal_timer;
+
+    internal_timer += cycles;
+    div = internal_timer / 256;
 
     if (tac & (1 << 2)) {
-        cycles_since_tima_increment += cycles;
 
         unsigned int cycles_num;
         switch(tac & 0b11) {
@@ -44,8 +42,9 @@ void Timer::update(uint8_t cycles, Cpu& cpu)
                 assert(0);
         }
 
-        while (cycles_since_tima_increment >= cycles_num) {
-            cycles_since_tima_increment -= cycles_num;
+        unsigned int num_increments = (internal_timer / cycles_num) - (prev_internal_timer / cycles_num);
+
+        for (unsigned int i = 0; i < num_increments; i++) {
             if (tima == 0xff) {
                 tima = tma;
                 cpu.if_ |= (1 << 2);
@@ -54,4 +53,11 @@ void Timer::update(uint8_t cycles, Cpu& cpu)
             }
         }
     }
+
+    internal_timer %= 1024;
+}
+
+void Timer::reset_timer()
+{
+    internal_timer = 0;
 }
