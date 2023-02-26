@@ -25,6 +25,7 @@ Ppu::Ppu()
 
 void Ppu::reset()
 {
+    cycles_since_last_vblank = 0;
     lcdc = 0x91;
     ly = 0x90;
     stat = 0x85;
@@ -37,6 +38,7 @@ void Ppu::reset()
 
 void Ppu::exec(uint8_t cycles)
 {
+    cycles_since_last_vblank += cycles;
     if ((lcdc & LCD_ENABLE_BIT) == 0) return;
     cycle_count += cycles;
     switch(stat & 0x3) {
@@ -53,6 +55,10 @@ void Ppu::exec(uint8_t cycles)
                 stat &= ~(0b11);
                 stat |= MODE_HBLANK;
                 cycle_count -= 172;
+
+                if (stat & (1 << 3)) {
+                    cpu->if_ |= (1 << 1);
+                }
             }
             break;
 
@@ -146,10 +152,21 @@ void Ppu::exec(uint8_t cycles)
                 if (ly >= 144) {
                     stat &= ~(0b11);
                     stat |= MODE_VBLANK;
-                    cpu->if_ |= 1;
+                    cpu->if_ |= (1 << 0);
+
+                    if (stat & (1 << 4)) {
+                        cpu->if_ |= (1 << 1);
+                    }
+
+                    printf("Vblank: %u\n", cycles_since_last_vblank);
+                    cycles_since_last_vblank = 0;
                 } else {
                     stat &= ~(0b11);
                     stat |= MODE_OAM_SEARCH;
+
+                    if (stat & (1 << 5)) {
+                        cpu->if_ |= (1 << 1);
+                    }
                 }
                 cycle_count -= 204;
             }
@@ -162,10 +179,18 @@ void Ppu::exec(uint8_t cycles)
                     ly = 0;
                     stat &= ~(0b11);
                     stat |= MODE_OAM_SEARCH;
+
+                    if (stat & (1 << 5)) {
+                        cpu->if_ |= (1 << 1);
+                    }
                 }
                 cycle_count -= 456;
             }
             break;
+    }
+
+    if (ly == lyc && (stat & (1 << 6))) {
+        cpu->if_ |= (1 << 1);
     }
 }
 

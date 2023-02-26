@@ -32,5 +32,7 @@ struct Ppu
     uint32_t framebuf[160*144];
 
     Cpu* cpu;
+
+    unsigned int cycles_since_last_vblank;
 };
 #endif
