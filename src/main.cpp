@@ -55,6 +55,12 @@ void drawRegsWindow(Cpu& cpu, Ppu& ppu)
     ImGui::Text("LY = %02x", ppu.ly);
     ImGui::Text("MODE = %d", ppu.stat & 3);
     ImGui::Text("JOYP = %02x\n", cpu.joypad.joyp());
+
+    ImGui::NewLine();
+    ImGui::Text("TIMA = %02x", cpu.timer->tima);
+    ImGui::Text("DIV = %02x", cpu.timer->div);
+    ImGui::Text("TMA = %02x", cpu.timer->tma);
+    ImGui::Text("TAC = %02x", cpu.timer->tac);
     ImGui::End();
 }
 
@@ -356,8 +362,8 @@ int main(int argc, char** argv)
 
     QApplication app(argc, argv);
     DebugWindow debug_window;
-    debug_window.show();
-    app.exec();
+    //debug_window.show();
+    //app.exec();
 
     while (running) {
 
