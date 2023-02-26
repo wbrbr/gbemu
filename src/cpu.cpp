@@ -282,7 +282,7 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF07: timer->tac = v | 0b11111000; break;
             case 0xFF0F: if_ = v | (1 << 5) | (1 << 6) | (1 << 7); break;
             case 0xFF40: ppu->lcdc = v; break;
-            case 0xFF41: assert((v & 0x0F) == 0); ppu->stat = v; break; // TODO: only change top bits
+            case 0xFF41: ppu->stat = 0b10000000 | (v & 0b01111000) | (ppu->stat & 0b00000111); break;
             case 0xFF42: ppu->scy = v; break;
             case 0xFF43: ppu->scx = v; break;
             case 0xFF45: ppu->lyc = v; break;
