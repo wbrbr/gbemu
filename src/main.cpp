@@ -235,7 +235,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s", SDL_GetError());
         return 1;
     }
@@ -310,6 +310,11 @@ int main(int argc, char** argv)
     const int CYCLES_PER_FRAME = 4194304 / 60;
     uint64_t instr_num = 0;
     Inputs inputs;
+
+    unsigned int num_frames = 0;
+    unsigned int ticks_start = SDL_GetTicks();
+
+    float frame_time_ms = 0.f;
 
     while (running) {
 
@@ -433,6 +438,7 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("OAM", &show_oam);
                 ImGui::EndMenu();
             }
+            ImGui::Text("Frame time: %f\n", frame_time_ms);
             ImGui::EndMainMenuBar();
         }
         if (show_regs) drawRegsWindow(cpu, ppu);
@@ -464,6 +470,16 @@ int main(int argc, char** argv)
 
         ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
+
+        num_frames++;
+        if (num_frames == 100){
+            unsigned int ticks_end = SDL_GetTicks();
+            float elapsed_ms = (float)(ticks_end-ticks_start);
+            frame_time_ms = elapsed_ms / (float)num_frames;
+
+            num_frames = 0;
+            ticks_start = ticks_end;
+        }
     }
 
     ImGui_ImplOpenGL2_Shutdown();
