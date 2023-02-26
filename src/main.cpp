@@ -1,18 +1,15 @@
 #include "glad/glad.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
-#include <QApplication>
 #include <timer.hpp>
 #include "cpu.hpp"
 #include "string.h"
 #include "ppu.hpp"
 #include "opcodes.hpp"
-#include "sound.hpp"
 #include "disas.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl2.h"
-#include "debugwindow.hpp"
 
 enum ExecMode {
     MODE_RUN,
@@ -231,30 +228,6 @@ struct Inputs {
     }
 };
 
-struct AudioData {
-    SoundController* sound_controller;
-    SDL_AudioSpec spec;
-};
-
-uint64_t cur_frame = 0;
-
-void audio_callback(void* userdata, uint8_t* out, int len)
-{
-    AudioData* data = static_cast<AudioData*>(userdata);
-
-    uint64_t la_freq = 440;
-    uint64_t period = data->spec.freq / la_freq;
-
-    for (int frame = 0; frame < len / 2; frame++) {
-        int8_t v = (cur_frame % period < period / 2) ? 127 : -127;
-        int8_t framedata[2] = { v, v };
-        memcpy(&out[2*frame], framedata, 2); // do a memcpy because I'm scared of strict aliasing
-        cur_frame++;
-    }
-
-    cur_frame %= period;
-}
-
 int main(int argc, char** argv)
 {
     if (argc != 2) {
@@ -314,28 +287,6 @@ int main(int argc, char** argv)
 
     SDL_Event e;
 
-    SoundController sound_controller;
-
-    AudioData audio_data;
-
-    SDL_AudioSpec desired, obtained;
-    desired.freq = 44100;
-    desired.format = AUDIO_S8;
-    desired.samples = 1024;
-    desired.channels = 2;
-    desired.callback = audio_callback;
-    desired.userdata = &audio_data;
-    SDL_AudioDeviceID audio_dev = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-
-    if (audio_dev == 0) {
-        fprintf(stderr, "Failed to open audio device: %s\n", SDL_GetError());
-        exit(1);
-    }
-    audio_data.spec = obtained;
-    audio_data.sound_controller = &sound_controller;
-
-    SDL_PauseAudioDevice(audio_dev, 0);
-
     fill_opcode_table();
 
     Cpu cpu;
@@ -359,11 +310,6 @@ int main(int argc, char** argv)
     const int CYCLES_PER_FRAME = 4194304 / 60;
     uint64_t instr_num = 0;
     Inputs inputs;
-
-    QApplication app(argc, argv);
-    DebugWindow debug_window;
-    //debug_window.show();
-    //app.exec();
 
     while (running) {
 
