@@ -412,9 +412,7 @@ int main(int argc, char** argv)
             for (int i = 0; i < CYCLES_PER_FRAME;)
             {
                 SideEffects eff = cpu.cycle();
-                if (!cpu.halted) {
-                    ppu.exec(eff.cycles);
-                }
+                ppu.exec(eff.cycles);
                 instr_num++;
                 if (instr_num == 0) puts("overflow");
                 i += eff.cycles;
