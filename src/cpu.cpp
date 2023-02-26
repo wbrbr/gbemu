@@ -83,13 +83,13 @@ void Mbc1::memw(uint16_t a, uint8_t v)
         return;
     }
     if (a >= 0x2000 && a <= 0x3fff) {
-        rom_bank = v & 0b00011111;
-        if (rom_bank == 0) rom_bank = 1;
-        //printf("Rom bank: %u\n", rom_bank);
+        rom_bank &= 0b11100000;
+        uint8_t x = v & 0b00011111;
+        if (x == 0) x++;
+        rom_bank |= x;
         return;
     }
     if (a >= 0x4000 && a <= 0x5fff) {
-        puts("yay");
         if (bank_mode) {
             ram_bank = v & 3;
         } else {
@@ -104,12 +104,131 @@ void Mbc1::memw(uint16_t a, uint8_t v)
         return;
     }
     if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
-        ram[rom_bank*0x2000 + a - 0xa000] = v;
+        ram[0x2000*ram_bank + a - 0xa000] = v;
         return;
     }
 }
 
+Mbc3::Mbc3()
+{
+    static_assert(2*(1<<20) == 0x200000);
+    static_assert(64 * (1<<10) == 0x10000);
+    rom = (uint8_t*)calloc(1, 2 * (1 << 20));
+    ram = (uint8_t*)calloc(1, 64 * (1 << 10));
+    Mbc3::reset();
+}
 
+void Mbc3::load(uint8_t* cartridge, unsigned int size)
+{
+    memcpy(rom, cartridge, size);
+}
+
+void Mbc3::reset()
+{
+    memset(ram, 0, 64 * (1 << 10));
+    ram_enabled = false;
+    rom_bank = 1;
+    ram_bank = 0;
+    bank_mode = 0;
+    clock = { 0 };
+    clock_latch = false;
+}
+
+uint8_t Mbc3::mem(uint16_t a)
+{
+    if (a <= 0x3fff) return rom[a];
+    if (a <= 0x7fff) {
+        return rom[0x4000*rom_bank + a-0x4000];
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        if (ram_bank <= 7) {
+            return ram[0x2000*ram_bank + a - 0xa000];
+        } else {
+            switch(ram_bank) {
+            case 0x8:
+                return clock.seconds;
+
+            case 0x9:
+                return clock.minutes;
+
+            case 0xa:
+                return clock.hours;
+
+            case 0xb:
+                return clock.days_lo;
+
+            case 0xc:
+                return clock.days_hi;
+
+            default:
+                abort();
+            }
+        }
+    }
+
+    return 0xff;
+}
+
+void Mbc3::memw(uint16_t a, uint8_t v)
+{
+    if (a <= 0x1fff) {
+        ram_enabled = (v & 0xf) == 0xA;
+        return;
+    }
+    if (a >= 0x2000 && a <= 0x3fff) {
+        rom_bank &= 0b10000000;
+        rom_bank |= v & 0b01111111;
+        if (rom_bank == 0) rom_bank++;
+        return;
+    }
+    if (a >= 0x4000 && a <= 0x5fff) {
+        if (bank_mode) {
+            if (v <= 0xc) {
+                ram_bank = v;
+            }
+        } else {
+            uint8_t hi = v & 3;
+            rom_bank &= 0b00011111;
+            rom_bank |= (hi << 5);
+        }
+        return;
+    }
+    if (a >= 0x6000 && a <= 0x7fff) {
+        clock_latch = !clock_latch;
+        return;
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        if (ram_bank <= 7) {
+            ram[ram_bank*0x2000 + a - 0xa000] = v;
+        } else {
+            switch(ram_bank) {
+            case 0x8:
+                clock.seconds = v;
+                break;
+
+            case 0x9:
+                clock.minutes = v;
+                break;
+
+            case 0xa:
+                clock.hours = v;
+                break;
+
+            case 0xb:
+                clock.days_lo = v;
+                break;
+
+            case 0xc:
+                clock.days_hi = v;
+                break;
+
+            default:
+                abort();
+            }
+        }
+        return;
+    }
+}
 Cpu::Cpu(): serial(this)
 {
     ppu = nullptr;
@@ -181,6 +300,11 @@ void Cpu::load(const char* path)
         case 0x01:
             mbc = new Mbc1();
             puts("MBC1");
+            break;
+
+        case 0x03:
+            mbc = new Mbc3();
+            puts("MBC3");
             break;
 
         default:

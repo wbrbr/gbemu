@@ -34,10 +34,10 @@ struct Mbc
 struct Mbc0: public Mbc
 {
     Mbc0();
-    void load(uint8_t* cartridge, unsigned int size);
-    void reset();
-    uint8_t mem(uint16_t a);
-    void memw(uint16_t a, uint8_t v);
+    void load(uint8_t* cartridge, unsigned int size) override;
+    void reset() override;
+    uint8_t mem(uint16_t a) override;
+    void memw(uint16_t a, uint8_t v) override;
 
     uint8_t rom[0x8000];
     uint8_t ram[0x2000];
@@ -46,10 +46,10 @@ struct Mbc0: public Mbc
 struct Mbc1: public Mbc
 {
     Mbc1();
-    void load(uint8_t* cartridge, unsigned int size);
-    void reset();
-    uint8_t mem(uint16_t a);
-    void memw(uint16_t a, uint8_t v);
+    void load(uint8_t* cartridge, unsigned int size) override;
+    void reset() override;
+    uint8_t mem(uint16_t a) override;
+    void memw(uint16_t a, uint8_t v) override;
 
     bool ram_enabled;
     uint8_t rom_bank;
@@ -58,6 +58,33 @@ struct Mbc1: public Mbc
 
     uint8_t* rom;
     uint8_t* ram;
+};
+
+struct Mbc3: public Mbc
+{
+    Mbc3();
+    void load(uint8_t* cartridge, unsigned int size) override;
+    void reset() override;
+    uint8_t mem(uint16_t a) override;
+    void memw(uint16_t a, uint8_t v) override;
+
+    bool ram_enabled;
+    uint8_t rom_bank;
+    uint8_t ram_bank;
+    uint8_t bank_mode;
+
+    uint8_t* rom;
+    uint8_t* ram;
+
+    bool clock_latch;
+
+    struct {
+        uint8_t seconds;
+        uint8_t minutes;
+        uint8_t hours;
+        uint8_t days_lo;
+        uint8_t days_hi;
+    } clock;
 };
 
 struct Cpu;
