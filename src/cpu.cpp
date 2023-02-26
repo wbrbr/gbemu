@@ -276,7 +276,7 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF00: joypad.select_buttons = (v & (1 << 5)) == 0; break;
             case 0xFF01: serial.sb = v; printf("%c", v); break;
             case 0xFF02: serial.sc = v; break;
-            case 0xFF04: timer->div = 0; break;
+            case 0xFF04: timer->reset_timer(); break;
             case 0xFF05: timer->tima = v; break;
             case 0xFF06: timer->tma = v; break;
             case 0xFF07: timer->tac = v; break;
