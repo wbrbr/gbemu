@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <timer.hpp>
+#include <memory>
 #include "cpu.hpp"
 #include "string.h"
 #include "ppu.hpp"
@@ -228,6 +229,18 @@ struct Inputs {
     }
 };
 
+struct State {
+    Cpu cpu;
+    Ppu ppu;
+    Timer timer;
+    std::unique_ptr<Mbc> mbc;
+};
+
+struct FrameData {
+    State state;
+    Inputs inputs;
+};
+
 int main(int argc, char** argv)
 {
     if (argc != 2) {
@@ -289,15 +302,11 @@ int main(int argc, char** argv)
 
     fill_opcode_table();
 
-    Cpu cpu;
-    cpu.load(argv[1]);
-    
-    Ppu ppu;
-    Timer timer;
-
-    cpu.ppu = &ppu;
-    ppu.cpu = &cpu;
-    cpu.timer = &timer;
+    State state;
+    state.cpu.load(argv[1]);
+    state.cpu.ppu = &state.ppu;
+    state.ppu.cpu = &state.cpu;
+    state.cpu.timer = &state.timer;
 
     ExecMode mode = MODE_STEP;
 
@@ -380,30 +389,30 @@ int main(int argc, char** argv)
             inputs.a = state[SDL_SCANCODE_X];
         }
 
-        setbit(cpu.joypad.directions_state, 0, !inputs.right);
-        setbit(cpu.joypad.directions_state, 1, !inputs.left);
-        setbit(cpu.joypad.directions_state, 2, !inputs.up);
-        setbit(cpu.joypad.directions_state, 3, !inputs.down);
-        setbit(cpu.joypad.buttons_state, 0, !inputs.a);
-        setbit(cpu.joypad.buttons_state, 1, !inputs.b);
-        setbit(cpu.joypad.buttons_state, 2, !inputs.select);
-        setbit(cpu.joypad.buttons_state, 3, !inputs.start);
+        setbit(state.cpu.joypad.directions_state, 0, !inputs.right);
+        setbit(state.cpu.joypad.directions_state, 1, !inputs.left);
+        setbit(state.cpu.joypad.directions_state, 2, !inputs.up);
+        setbit(state.cpu.joypad.directions_state, 3, !inputs.down);
+        setbit(state.cpu.joypad.buttons_state, 0, !inputs.a);
+        setbit(state.cpu.joypad.buttons_state, 1, !inputs.b);
+        setbit(state.cpu.joypad.buttons_state, 2, !inputs.select);
+        setbit(state.cpu.joypad.buttons_state, 3, !inputs.start);
 
         if (mode == MODE_STEP) {
             if (go_step) {
-                SideEffects eff = cpu.cycle();
-                ppu.exec(eff.cycles);
+                SideEffects eff = state.cpu.cycle();
+                state.ppu.exec(eff.cycles);
                 go_step = false;
                 instr_num++;
             } else if (go_step_back) {
                 uint64_t target = instr_num;
-                cpu.reset();
-                ppu.reset();
+                state.cpu.reset();
+                state.ppu.reset();
                 instr_num = 0;
                 while (instr_num + 1 != target)
                 {
-                    SideEffects eff = cpu.cycle();
-                    ppu.exec(eff.cycles);
+                    SideEffects eff = state.cpu.cycle();
+                    state.ppu.exec(eff.cycles);
                     instr_num++;
                 }
                 go_step_back = false;
@@ -411,8 +420,8 @@ int main(int argc, char** argv)
         } else {
             for (int i = 0; i < CYCLES_PER_FRAME;)
             {
-                SideEffects eff = cpu.cycle();
-                ppu.exec(eff.cycles);
+                SideEffects eff = state.cpu.cycle();
+                state.ppu.exec(eff.cycles);
                 instr_num++;
                 if (instr_num == 0) puts("overflow");
                 i += eff.cycles;
@@ -425,7 +434,7 @@ int main(int argc, char** argv)
         }
 
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGBA, GL_UNSIGNED_BYTE, ppu.framebuf);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGBA, GL_UNSIGNED_BYTE, state.ppu.framebuf);
 
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("Windows")) {
@@ -439,12 +448,12 @@ int main(int argc, char** argv)
             ImGui::Text("Frame time: %f\n", frame_time_ms);
             ImGui::EndMainMenuBar();
         }
-        if (show_regs) drawRegsWindow(cpu, ppu);
-        if (show_instrs) drawInstrWindow(cpu);
-        if (show_mem) drawMemWindow(cpu);
-        if (show_tiles)drawTilesWindow(ppu);
-        if (show_bgmap) drawBGMapWindow(ppu);
-        if (show_oam) drawOAMWindow(ppu);
+        if (show_regs) drawRegsWindow(state.cpu, state.ppu);
+        if (show_instrs) drawInstrWindow(state.cpu);
+        if (show_mem) drawMemWindow(state.cpu);
+        if (show_tiles)drawTilesWindow(state.ppu);
+        if (show_bgmap) drawBGMapWindow(state.ppu);
+        if (show_oam) drawOAMWindow(state.ppu);
             // ImGui::ShowDemoWindow();
 
 
