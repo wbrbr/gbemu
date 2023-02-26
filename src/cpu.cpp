@@ -279,10 +279,10 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF04: timer->reset_timer(); break;
             case 0xFF05: timer->tima = v; break;
             case 0xFF06: timer->tma = v; break;
-            case 0xFF07: timer->tac = v; break;
+            case 0xFF07: timer->tac = v | 0b11111000; break;
             case 0xFF0F: if_ = v | (1 << 5) | (1 << 6) | (1 << 7); break;
             case 0xFF40: ppu->lcdc = v; break;
-            case 0xFF41: assert((v & 0xF) == 0); ppu->stat = v; break; // TODO: only change top bits
+            case 0xFF41: assert((v & 0x0F) == 0); ppu->stat = v; break; // TODO: only change top bits
             case 0xFF42: ppu->scy = v; break;
             case 0xFF43: ppu->scx = v; break;
             case 0xFF45: ppu->lyc = v; break;
@@ -1779,18 +1779,19 @@ SideEffects Cpu::cycle()
                 pc = int_handlers[i];
 
                 eff.cycles = 5*4;
-                return eff;
             }
         }
     }
 
-    if (halted) {
-        eff.cycles += 4;
-    } else {
-        //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
-        uint8_t instr = mem(pc);
-        pc++;
-        executeInstruction(instr, eff);
+    if (eff.cycles == 0) {
+        if (halted) {
+            eff.cycles += 4;
+        } else {
+            //fprintf(log_file, "A: %02x B: %02x C: %02x D: %02x E: %02x H: %02x L: %02x F: %02x PC: %04x (%02x %02x %02x) LY: %02x\n", regs[REG_A], regs[REG_B], regs[REG_C], regs[REG_D], regs[REG_E], regs[REG_H], regs[REG_L], af() & 0xff, pc, mem(pc), mem(pc+1), mem(pc+2), ppu->ly);
+            uint8_t instr = mem(pc);
+            pc++;
+            executeInstruction(instr, eff);
+        }
     }
 
     assert(eff.cycles > 0);
