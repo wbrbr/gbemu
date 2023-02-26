@@ -13,11 +13,11 @@ struct Timer {
 
     Timer();
     void update(uint8_t cycles, Cpu& cpu);
+    void reset_timer();
 
 private:
 
-    unsigned int cycles_since_div_increment;
-    unsigned int cycles_since_tima_increment;
+    unsigned int internal_timer;
 };
 
 #endif //GBEMU_TIMER_HPP
