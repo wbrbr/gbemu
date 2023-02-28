@@ -22,87 +22,6 @@ enum Registers {
     REG_H
 };
 
-struct Mbc
-{
-    virtual ~Mbc();
-    virtual void load(uint8_t* cartridge, unsigned int size) = 0;
-    virtual void reset() = 0;
-    virtual uint8_t mem(uint16_t a) = 0;
-    virtual void memw(uint16_t a, uint8_t v) = 0;
-};
-
-struct Mbc0: public Mbc
-{
-    Mbc0();
-    void load(uint8_t* cartridge, unsigned int size) override;
-    void reset() override;
-    uint8_t mem(uint16_t a) override;
-    void memw(uint16_t a, uint8_t v) override;
-
-    uint8_t rom[0x8000];
-    uint8_t ram[0x2000];
-};
-
-struct Mbc1: public Mbc
-{
-    Mbc1();
-    void load(uint8_t* cartridge, unsigned int size) override;
-    void reset() override;
-    uint8_t mem(uint16_t a) override;
-    void memw(uint16_t a, uint8_t v) override;
-
-    bool ram_enabled;
-    uint8_t rom_bank;
-    uint8_t ram_bank;
-    uint8_t bank_mode;
-
-    uint8_t* rom;
-    uint8_t* ram;
-};
-
-struct Mbc3: public Mbc
-{
-    Mbc3();
-    void load(uint8_t* cartridge, unsigned int size) override;
-    void reset() override;
-    uint8_t mem(uint16_t a) override;
-    void memw(uint16_t a, uint8_t v) override;
-
-    bool ram_enabled;
-    uint8_t rom_bank;
-    uint8_t ram_bank;
-
-    uint8_t* rom;
-    uint8_t* ram;
-
-    bool clock_latch;
-
-    // TODO: real time clock
-    struct {
-        uint8_t seconds;
-        uint8_t minutes;
-        uint8_t hours;
-        uint8_t days_lo;
-        uint8_t days_hi;
-    } clock;
-};
-
-struct Mbc5: public Mbc
-{
-    Mbc5();
-    void load(uint8_t* cartridge, unsigned int size) override;
-    void reset() override;
-    uint8_t mem(uint16_t a) override;
-    void memw(uint16_t a, uint8_t v) override;
-
-    bool ram_enabled;
-    uint16_t rom_bank;
-    uint8_t ram_bank;
-
-    uint8_t* rom;
-    uint8_t* ram;
-};
-
 struct Cpu;
 
 struct SerialController
@@ -125,6 +44,8 @@ struct JoypadController
     uint8_t buttons_state;
     uint8_t directions_state;
 };
+
+struct Mbc;
 
 struct Cpu
 {

@@ -5,6 +5,7 @@
 #include <memory>
 #include "cpu.hpp"
 #include "string.h"
+#include "mbc.hpp"
 #include "ppu.hpp"
 #include "opcodes.hpp"
 #include "disas.hpp"

@@ -21,12 +21,17 @@ add_executable(gbemu src/main.cpp
     src/opcodes.cpp
     src/disas.cpp
     src/util.cpp
+    src/mbc.cpp
     include/cpu.hpp
     include/opcodes.hpp
     include/ppu.hpp
     include/timer.hpp
     include/disas.hpp
-    include/util.hpp)
+    include/util.hpp
+    include/mbc.hpp)
+
 
 target_include_directories(gbemu PRIVATE include external/include)
 target_link_libraries(gbemu ${SDL2_LIBRARIES} ${OPENGL_LIBRARIES} ${CMAKE_DL_LIBS})
+target_compile_options(gbemu PRIVATE -fsanitize=address)
+target_link_options(gbemu PRIVATE -fsanitize=address)
