@@ -71,13 +71,13 @@ struct Mbc3: public Mbc
     bool ram_enabled;
     uint8_t rom_bank;
     uint8_t ram_bank;
-    uint8_t bank_mode;
 
     uint8_t* rom;
     uint8_t* ram;
 
     bool clock_latch;
 
+    // TODO: real time clock
     struct {
         uint8_t seconds;
         uint8_t minutes;
@@ -85,6 +85,22 @@ struct Mbc3: public Mbc
         uint8_t days_lo;
         uint8_t days_hi;
     } clock;
+};
+
+struct Mbc5: public Mbc
+{
+    Mbc5();
+    void load(uint8_t* cartridge, unsigned int size) override;
+    void reset() override;
+    uint8_t mem(uint16_t a) override;
+    void memw(uint16_t a, uint8_t v) override;
+
+    bool ram_enabled;
+    uint16_t rom_bank;
+    uint8_t ram_bank;
+
+    uint8_t* rom;
+    uint8_t* ram;
 };
 
 struct Cpu;

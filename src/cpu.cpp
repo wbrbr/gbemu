@@ -129,7 +129,6 @@ void Mbc3::reset()
     ram_enabled = false;
     rom_bank = 1;
     ram_bank = 0;
-    bank_mode = 0;
     clock = { 0 };
     clock_latch = false;
 }
@@ -182,14 +181,8 @@ void Mbc3::memw(uint16_t a, uint8_t v)
         return;
     }
     if (a >= 0x4000 && a <= 0x5fff) {
-        if (bank_mode) {
-            if (v <= 0xc) {
-                ram_bank = v;
-            }
-        } else {
-            uint8_t hi = v & 3;
-            rom_bank &= 0b00011111;
-            rom_bank |= (hi << 5);
+        if (v <= 0xc) {
+            ram_bank = v;
         }
         return;
     }
@@ -229,6 +222,70 @@ void Mbc3::memw(uint16_t a, uint8_t v)
         return;
     }
 }
+
+Mbc5::Mbc5()
+{
+    static_assert(2*(1<<20) == 0x200000);
+    static_assert(64 * (1<<10) == 0x10000);
+    rom = (uint8_t*)calloc(1, 8 * (1 << 20));
+    ram = (uint8_t*)calloc(1, 64 * (1 << 10));
+    Mbc5::reset();
+}
+
+void Mbc5::load(uint8_t* cartridge, unsigned int size)
+{
+    memcpy(rom, cartridge, size);
+}
+
+void Mbc5::reset()
+{
+    memset(ram, 0, 64 * (1 << 10));
+    ram_enabled = false;
+    rom_bank = 1;
+    ram_bank = 0;
+}
+
+uint8_t Mbc5::mem(uint16_t a)
+{
+    if (a <= 0x3fff) return rom[a];
+    if (a <= 0x7fff) {
+        return rom[0x4000*rom_bank + a-0x4000];
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        return ram[0x2000*ram_bank + a - 0xa000];
+    }
+
+    return 0xff;
+}
+
+void Mbc5::memw(uint16_t a, uint8_t v)
+{
+    if (a <= 0x1fff) {
+        ram_enabled = (v & 0xf) == 0xA;
+        return;
+    }
+    if (a >= 0x2000 && a <= 0x2fff) {
+        rom_bank &= 0xff00;
+        rom_bank |= v;
+        return;
+    }
+    if (a >= 0x3000 && a <= 0x3fff) {
+        rom_bank &= ~(1 << 8);
+        rom_bank |= ((v&1) << 8);
+        return;
+    }
+    if (a >= 0x4000 && a <= 0x5fff) {
+        if (v <= 0xf) {
+            ram_bank = v;
+        }
+        return;
+    }
+    if (ram_enabled && a >= 0xa000 && a <= 0xbfff) {
+        ram[ram_bank*0x2000 + a - 0xa000] = v;
+        return;
+    }
+}
+
 Cpu::Cpu(): serial(this)
 {
     ppu = nullptr;
@@ -305,6 +362,11 @@ void Cpu::load(const char* path)
         case 0x03:
             mbc = new Mbc3();
             puts("MBC3");
+            break;
+
+        case 0x1b:
+            mbc = new Mbc5();
+            puts("MBC5+RAM+RUMBLE");
             break;
 
         default:
