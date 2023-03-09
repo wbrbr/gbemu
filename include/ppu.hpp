@@ -34,5 +34,8 @@ struct Ppu
     Cpu* cpu;
 
     unsigned int cycles_since_last_vblank;
+
+private:
+    void draw_scanline();
 };
 #endif
