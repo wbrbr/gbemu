@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+constexpr uint8_t BG_WINDOW_ENABLE_BIT = 1 << 0;
 constexpr uint8_t OBJ_ENABLE_BIT = 1 << 1;
 constexpr uint8_t OBJ_SIZE_BIT = 1 << 2;
 constexpr uint8_t BG_MAP_ADDRESSING_BIT = 1 << 3;
@@ -60,15 +61,17 @@ void Ppu::draw_scanline()
 
     int num_objects = 0;
 
-    // iterate over objects
-    for (int i = 0; i < 40 && num_objects < 10; i++) {
-        int sprite_y = (int)oam[4*i] - 16;
-        int sp_yoff = ly - sprite_y;
-        int sprite_height = lcdc & OBJ_SIZE_BIT ? 16 : 8;
+    if (lcdc & OBJ_ENABLE_BIT) {
+        // iterate over objects
+        for (int i = 0; i < 40 && num_objects < 10; i++) {
+            int sprite_y = (int)oam[4*i] - 16;
+            int sp_yoff = ly - sprite_y;
+            int sprite_height = lcdc & OBJ_SIZE_BIT ? 16 : 8;
 
-        if (sp_yoff >= 0 && sp_yoff < sprite_height) {
-            scanline_objects[num_objects] = i;
-            num_objects++;
+            if (sp_yoff >= 0 && sp_yoff < sprite_height) {
+                scanline_objects[num_objects] = i;
+                num_objects++;
+            }
         }
     }
 
@@ -78,44 +81,49 @@ void Ppu::draw_scanline()
     {
         uint8_t tile_num;
         uint8_t x_off, y_off;
-        if ((lcdc & WINDOW_ENABLE_BIT) &&  x >= wx && ly >= wy) {
-            uint8_t win_x = x-wx;
-            uint8_t win_y = ly-wy;
-            uint8_t tile_x = win_x / 8;
-            uint8_t tile_y = win_y / 8;
-            x_off = win_x % 8;
-            y_off = win_y % 8;
-            if (lcdc & WINDOW_MAP_ADDRESSING_BIT) {
-                tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
-            } else {
-                tile_num = vram[0x1800 + tile_y * 32 + tile_x];
-            }
-        } else {
-            uint8_t bg_x = scx+x;
-            uint8_t bg_y = scy+ly;
-            uint8_t tile_x = bg_x / 8;
-            uint8_t tile_y = bg_y / 8;
-            x_off = bg_x % 8;
-            y_off = bg_y % 8;
-            if (lcdc & BG_MAP_ADDRESSING_BIT) {
-                tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
-            } else {
-                tile_num = vram[0x1800 + tile_y * 32 + tile_x];
-            }
-        }
 
-        uint8_t b1, b2;
-        if (lcdc & TILE_DATA_ADDRESSING_BIT) {
-            b1 = vram[tile_num * 16 + 2*y_off];
-            b2 = vram[tile_num * 16 + 2*y_off+1];
-        } else {
-            b1 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off];
-            b2 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off+1];
+        uint8_t bg_col_id = 0xff;
+        uint8_t col = values[0];
+        if (lcdc & BG_WINDOW_ENABLE_BIT) {
+            if ((lcdc & WINDOW_ENABLE_BIT) &&  x >= wx-7 && ly >= wy) {
+                uint8_t win_x = x-wx+7;
+                uint8_t win_y = ly-wy;
+                uint8_t tile_x = win_x / 8;
+                uint8_t tile_y = win_y / 8;
+                x_off = win_x % 8;
+                y_off = win_y % 8;
+                if (lcdc & WINDOW_MAP_ADDRESSING_BIT) {
+                    tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                } else {
+                    tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                }
+            } else {
+                uint8_t bg_x = scx+x;
+                uint8_t bg_y = scy+ly;
+                uint8_t tile_x = bg_x / 8;
+                uint8_t tile_y = bg_y / 8;
+                x_off = bg_x % 8;
+                y_off = bg_y % 8;
+                if (lcdc & BG_MAP_ADDRESSING_BIT) {
+                    tile_num = vram[0x1c00 + tile_y * 32 + tile_x];
+                } else {
+                    tile_num = vram[0x1800 + tile_y * 32 + tile_x];
+                }
+            }
+
+            uint8_t b1, b2;
+            if (lcdc & TILE_DATA_ADDRESSING_BIT) {
+                b1 = vram[tile_num * 16 + 2*y_off];
+                b2 = vram[tile_num * 16 + 2*y_off+1];
+            } else {
+                b1 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off];
+                b2 = vram[0x1000 + unsigned_to_signed(tile_num) * 16 + 2 * y_off+1];
+            }
+            uint8_t lsb = (b1 >> (7 - x_off)) & 1;
+            uint8_t msb = (b2 >> (7 - x_off)) & 1;
+            bg_col_id = lsb | (msb << 1);
+            col = palette(bgp, bg_col_id);
         }
-        uint8_t lsb = (b1 >> (7 - x_off)) & 1;
-        uint8_t msb = (b2 >> (7 - x_off)) & 1;
-        uint8_t bg_col_id = lsb | (msb << 1);
-        uint8_t col = palette(bgp, bg_col_id);
 
         for (int i = 0; i < num_objects; i++) {
             int obj_id = scanline_objects[i];
@@ -131,10 +139,10 @@ void Ppu::draw_scanline()
                 tile_num = oam[4*obj_id+2];
                 if (sp_flags & FLIP_X_BIT) sp_xoff = 7 - sp_xoff;
                 if (sp_flags & FLIP_Y_BIT) sp_yoff = sprite_height - 1 - sp_yoff;
-                b1 = vram[tile_num * 16 + 2*sp_yoff];
-                b2 = vram[tile_num * 16 + 2*sp_yoff+1];
-                lsb = (b1 >> (7 - sp_xoff)) & 1;
-                msb = (b2 >> (7 - sp_xoff)) & 1;
+                uint8_t b1 = vram[tile_num * 16 + 2*sp_yoff];
+                uint8_t b2 = vram[tile_num * 16 + 2*sp_yoff+1];
+                uint8_t lsb = (b1 >> (7 - sp_xoff)) & 1;
+                uint8_t msb = (b2 >> (7 - sp_xoff)) & 1;
                 uint8_t col_id = lsb | (msb << 1);
                 uint8_t obj_col = palette((sp_flags >> 4) & 1 ? obp1 : obp0, lsb | (msb << 1));
 
