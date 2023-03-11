@@ -4,6 +4,7 @@
 #include <timer.hpp>
 #include <memory>
 #include "cpu.hpp"
+#include "apu.hpp"
 #include "string.h"
 #include "mbc.hpp"
 #include "ppu.hpp"
@@ -254,6 +255,17 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    SDL_AudioSpec desired;
+    desired.channels = 1;
+    desired.callback = nullptr;
+    desired.format = AUDIO_S16;
+    desired.freq = 44100;
+    desired.samples = 4096;
+    desired.userdata = nullptr;
+    SDL_AudioSpec obtained;
+    SDL_AudioDeviceID audio_dev = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+    SDL_PauseAudioDevice(audio_dev, 0);
+
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -303,9 +315,12 @@ int main(int argc, char** argv)
 
     fill_opcode_table();
 
+    Apu apu(audio_dev, obtained);
+
     State state;
     state.cpu.load(argv[1]);
     state.cpu.ppu = &state.ppu;
+    state.cpu.apu = &apu;
     state.ppu.cpu = &state.cpu;
     state.cpu.timer = &state.timer;
 
@@ -403,6 +418,7 @@ int main(int argc, char** argv)
             if (go_step) {
                 SideEffects eff = state.cpu.cycle();
                 state.ppu.exec(eff.cycles);
+                apu.exec(eff.cycles);
                 go_step = false;
                 instr_num++;
             } else if (go_step_back) {
@@ -414,6 +430,7 @@ int main(int argc, char** argv)
                 {
                     SideEffects eff = state.cpu.cycle();
                     state.ppu.exec(eff.cycles);
+                    apu.exec(eff.cycles);
                     instr_num++;
                 }
                 go_step_back = false;
@@ -423,6 +440,7 @@ int main(int argc, char** argv)
             {
                 SideEffects eff = state.cpu.cycle();
                 state.ppu.exec(eff.cycles);
+                apu.exec(eff.cycles);
                 instr_num++;
                 if (instr_num == 0) puts("overflow");
                 i += eff.cycles;

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <cstdio>
 
+struct Apu;
 struct Ppu;
 class Timer;
 
@@ -69,6 +70,7 @@ struct Cpu
     SerialController serial;
     JoypadController joypad;
     Ppu* ppu;
+    Apu* apu;
     Mbc* mbc;
     Timer* timer;
 

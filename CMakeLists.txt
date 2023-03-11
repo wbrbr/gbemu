@@ -28,7 +28,7 @@ add_executable(gbemu src/main.cpp
     include/timer.hpp
     include/disas.hpp
     include/util.hpp
-    include/mbc.hpp)
+    include/mbc.hpp src/apu.cpp)
 
 
 target_include_directories(gbemu PRIVATE include external/include)
