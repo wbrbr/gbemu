@@ -134,6 +134,11 @@ uint8_t Cpu::mem(uint16_t a, bool bypass) const
             case 0xFF06: return timer->tma;
             case 0xFF07: return timer->tac;
             case 0xFF0F: return if_;
+            case 0xFF10: return apu->pulseA.sweep;
+            case 0xFF11: return apu->pulseA.length;
+            case 0xFF12: return apu->pulseA.volume;
+            case 0xFF13: return apu->pulseA.frequency;
+            case 0xFF14: return (apu->pulseA.control & (1 << 6)) | ~(1 << 6);
             case 0xFF16: return apu->pulseB.length;
             case 0xFF17: return apu->pulseB.volume;
             case 0xFF18: return apu->pulseB.frequency;
@@ -202,6 +207,18 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF06: timer->tma = v; break;
             case 0xFF07: timer->tac = v | 0b11111000; break;
             case 0xFF0F: if_ = v | (1 << 5) | (1 << 6) | (1 << 7); break;
+            case 0xFF10: apu->pulseA.sweep = v; break;
+            case 0xFF11: apu->pulseA.length = v; break;
+            case 0xFF12: apu->pulseA.volume = v; break;
+            case 0xFF13: apu->pulseA.frequency = v; break;
+            case 0xFF14:
+                apu->pulseA.control = (v & 0b01000111) | (apu->pulseA.control & (0b10111000));
+                // trigger channel if bit 7 is set
+                if (v & (1 << 7)) {
+                    apu->sound_on |= FF26_CHANNEL_1_ON_BIT;
+                    apu->pulseA.trigger();
+                }
+                break;
             case 0xFF16: apu->pulseB.length = v; break;
             case 0xFF17: apu->pulseB.volume = v; break;
             case 0xFF18: apu->pulseB.frequency = v; break;
@@ -210,7 +227,7 @@ bool Cpu::memw(uint16_t a, uint8_t v)
                 apu->pulseB.control = (v & 0b01000111) | (apu->pulseB.control & (0b10111000));
                 // trigger channel if bit 7 is set
                 if (v & (1 << 7)) {
-                    apu->sound_on |= (1 << 1);
+                    apu->sound_on |= FF26_CHANNEL_2_ON_BIT;
                     apu->pulseB.trigger();
                 }
                 break;

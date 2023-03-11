@@ -27,6 +27,7 @@ void Apu::exec(uint8_t cycles)
     }
     elapsed_cycles += cycles;
 
+    pulseA.tick(cycles, sound_on);
     pulseB.tick(cycles, sound_on);
 
     int cycles_per_sample = CLOCK_FREQUENCY / audio_spec.freq;
@@ -36,10 +37,10 @@ void Apu::exec(uint8_t cycles)
         uint16_t sample = 0;
 
         if (sound_on & FF26_CHANNEL_1_ON_BIT) {
-            //sample += (int16_t)(pulseA.value() * 5000);
+            sample += (int16_t)(pulseA.value());
         }
         if (sound_on & FF26_CHANNEL_2_ON_BIT) {
-            sample += (uint16_t)(pulseB.value());
+            //sample += (uint16_t)(pulseB.value());
         }
 
         SDL_QueueAudio(audio_dev, &sample, sizeof(uint16_t));
