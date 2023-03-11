@@ -31,6 +31,7 @@ struct Ppu
 
     uint32_t framebuf[160*144];
 
+    // TODO: don't store pointer to Cpu, take reference to IF register in exec() instead
     Cpu* cpu;
 
     unsigned int cycles_since_last_vblank;

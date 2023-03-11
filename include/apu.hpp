@@ -10,12 +10,10 @@ struct Pulse {
     uint8_t frequency;
     uint8_t control;
 
+    uint8_t duty_step;
+
     uint16_t wavelength() const {
         return (uint16_t)frequency | ((uint16_t)(control & 0b111) << 8);
-    }
-
-    float frequencyHz() const {
-        return 131072.f / (float)(2048 - wavelength());
     }
 };
 
@@ -27,7 +25,9 @@ struct Apu {
     SDL_AudioSpec audio_spec;
     Pulse pulseA;
     Pulse pulseB;
+
     int elapsed_cycles;
+    int elapsed_cycles_duty_step;
 };
 
 #endif //GBEMU_APU_HPP

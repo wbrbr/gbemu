@@ -8,6 +8,7 @@
 #include "timer.hpp"
 #include "opcodes.hpp"
 #include "util.hpp"
+#include "apu.hpp"
 
 
 Cpu::Cpu(): serial(this)
@@ -133,6 +134,10 @@ uint8_t Cpu::mem(uint16_t a, bool bypass) const
             case 0xFF06: return timer->tma;
             case 0xFF07: return timer->tac;
             case 0xFF0F: return if_;
+            case 0xFF16: return apu->pulseB.length;
+            case 0xFF17: return apu->pulseB.volume;
+            case 0xFF18: return apu->pulseB.frequency;
+            case 0xFF19: return apu->pulseB.control;
             case 0xFF40: return ppu->lcdc;
             case 0xFF41: return ppu->stat;
             case 0xFF42: return ppu->scy;
@@ -196,6 +201,10 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF06: timer->tma = v; break;
             case 0xFF07: timer->tac = v | 0b11111000; break;
             case 0xFF0F: if_ = v | (1 << 5) | (1 << 6) | (1 << 7); break;
+            case 0xFF16: apu->pulseB.length = v; break;
+            case 0xFF17: apu->pulseB.volume = v; break;
+            case 0xFF18: apu->pulseB.frequency = v; break;
+            case 0xFF19: apu->pulseB.control = v; break;
             case 0xFF40: ppu->lcdc = v; break;
             case 0xFF41: ppu->stat = 0b10000000 | (v & 0b01111000) | (ppu->stat & 0b00000111); break;
             case 0xFF42: ppu->scy = v; break;
