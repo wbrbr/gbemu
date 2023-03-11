@@ -211,6 +211,7 @@ bool Cpu::memw(uint16_t a, uint8_t v)
                 // trigger channel if bit 7 is set
                 if (v & (1 << 7)) {
                     apu->sound_on |= (1 << 1);
+                    apu->pulseB.trigger();
                 }
                 break;
             case 0xFF26: apu->sound_on = (apu->sound_on & 0b1111) | (v & (1 << 7)); break; // only set bit 7, bits 0-3 are read-only

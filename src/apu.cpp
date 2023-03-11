@@ -50,8 +50,7 @@ void Apu::exec(uint8_t cycles)
 
 int Pulse::value() const {
     int duty_id = length >> 6;
-    int vol = volume >> 4;
-    return (duty_cycles[duty_id][duty_step] * 5000 * vol) / 0xF;
+    return (duty_cycles[duty_id][duty_step] * gain());
 }
 
 uint16_t Pulse::wavelength() const {
@@ -71,6 +70,19 @@ void Pulse::tick(int cycles, uint8_t &sound_on) {
         }
     }
 
+    uint8_t sweep_pace = sweep & 0b111;;
+    if (sweep_pace) {
+        if (enveloppe_timer.tick(cycles)) {
+            uint8_t enveloppe_inc = sweep & (1 << 3);
+            if (enveloppe_inc) {
+                current_volume--;
+            } else {
+                current_volume++;
+            }
+            current_volume = current_volume & 0xf;
+        }
+    }
+
     int duty_step_frequency = 1048576 / (2048 - wavelength());
     //assert(duty_step_frequency > 0);
     int cycles_per_duty_step = CLOCK_FREQUENCY / duty_step_frequency;
@@ -79,5 +91,17 @@ void Pulse::tick(int cycles, uint8_t &sound_on) {
     if (elapsed_cycles_duty_step >= cycles_per_duty_step) {
         elapsed_cycles_duty_step -= cycles_per_duty_step;
         duty_step = (duty_step + 1) % 16;
+    }
+}
+
+int Pulse::gain() const {
+    return (5000 * current_volume) / 0xf;
+}
+
+void Pulse::trigger() {
+    current_volume = volume >> 4;
+    int sweep_pace = sweep & 0b111;
+    if (sweep_pace) {
+        enveloppe_timer = CycleTimer(sweep_pace * CLOCK_FREQUENCY / 64);
     }
 }
