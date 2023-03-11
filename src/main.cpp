@@ -258,7 +258,7 @@ int main(int argc, char** argv)
     SDL_AudioSpec desired;
     desired.channels = 1;
     desired.callback = nullptr;
-    desired.format = AUDIO_S16;
+    desired.format = AUDIO_U16;
     desired.freq = 44100;
     desired.samples = 4096;
     desired.userdata = nullptr;

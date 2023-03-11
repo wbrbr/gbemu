@@ -137,7 +137,8 @@ uint8_t Cpu::mem(uint16_t a, bool bypass) const
             case 0xFF16: return apu->pulseB.length;
             case 0xFF17: return apu->pulseB.volume;
             case 0xFF18: return apu->pulseB.frequency;
-            case 0xFF19: return apu->pulseB.control;
+            case 0xFF19: return (apu->pulseB.control & (1 << 6)) | ~(1 << 6);
+            case 0xFF26: return apu->sound_on;
             case 0xFF40: return ppu->lcdc;
             case 0xFF41: return ppu->stat;
             case 0xFF42: return ppu->scy;
@@ -204,7 +205,15 @@ bool Cpu::memw(uint16_t a, uint8_t v)
             case 0xFF16: apu->pulseB.length = v; break;
             case 0xFF17: apu->pulseB.volume = v; break;
             case 0xFF18: apu->pulseB.frequency = v; break;
-            case 0xFF19: apu->pulseB.control = v; break;
+            case 0xFF19:
+                // write to bit 0-2 and 6
+                apu->pulseB.control = (v & 0b01000111) | (apu->pulseB.control & (0b10111000));
+                // trigger channel if bit 7 is set
+                if (v & (1 << 7)) {
+                    apu->sound_on |= (1 << 1);
+                }
+                break;
+            case 0xFF26: apu->sound_on = (apu->sound_on & 0b1111) | (v & (1 << 7)); break; // only set bit 7, bits 0-3 are read-only
             case 0xFF40: ppu->lcdc = v; break;
             case 0xFF41: ppu->stat = 0b10000000 | (v & 0b01111000) | (ppu->stat & 0b00000111); break;
             case 0xFF42: ppu->scy = v; break;
