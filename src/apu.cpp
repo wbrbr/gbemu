@@ -9,7 +9,7 @@ int duty_cycles[4][16] = {
         { 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1}
 };
 
-Apu::Apu(SDL_AudioDeviceID audio_dev, SDL_AudioSpec audio_spec)
+Apu::Apu(SDL_AudioDeviceID audio_dev, SDL_AudioSpec audio_spec): pulseA(0), pulseB(1)
 {
     this->audio_dev = audio_dev;
     this->audio_spec = audio_spec;
@@ -40,7 +40,7 @@ void Apu::exec(uint8_t cycles)
             sample += (int16_t)(pulseA.value());
         }
         if (sound_on & FF26_CHANNEL_2_ON_BIT) {
-            //sample += (uint16_t)(pulseB.value());
+            sample += (uint16_t)(pulseB.value());
         }
 
         SDL_QueueAudio(audio_dev, &sample, sizeof(uint16_t));
@@ -59,28 +59,31 @@ uint16_t Pulse::wavelength() const {
 }
 
 void Pulse::tick(int cycles, uint8_t &sound_on) {
-    if (control & (1 << 6)) {
-        if (length_timer.tick(cycles)) {
-            uint8_t sound_length = length & 0b00111111;
-            sound_length = (sound_length + 1) % 64;
-            length = (length & 0b11000000) | sound_length;
-            printf("%d\n", length);
-            if (sound_length == 0) {
-                sound_on &= (uint8_t)(~(FF26_SOUND_ON_BIT));
-            }
+    if (length_timer.tick(cycles)) {
+        uint8_t sound_length = length & 0b00111111;
+        if (control & (1 << 6) && sound_length == 63) {
+            uint8_t disable_channel_mask = ~(1 << channel_num);
+            sound_on &= disable_channel_mask;
         }
+        sound_length = (sound_length + 1) % 64;
+        length = (length & 0b11000000) | sound_length;
     }
 
-    uint8_t sweep_pace = sweep & 0b111;;
-    if (sweep_pace) {
+    if (enveloppe_pace) {
         if (enveloppe_timer.tick(cycles)) {
-            uint8_t enveloppe_inc = sweep & (1 << 3);
-            if (enveloppe_inc) {
-                current_volume--;
-            } else {
-                current_volume++;
+            if (period_timer > 0) {
+                period_timer--;
             }
-            current_volume = current_volume & 0xf;
+
+            if (period_timer == 0) {
+                period_timer = enveloppe_pace;
+
+                if (enveloppe_inc && current_volume < 0xf) {
+                    current_volume++;
+                } else if (current_volume > 0){
+                    current_volume--;
+                }
+            }
         }
     }
 
@@ -101,8 +104,7 @@ int Pulse::gain() const {
 
 void Pulse::trigger() {
     current_volume = volume >> 4;
-    int sweep_pace = sweep & 0b111;
-    if (sweep_pace) {
-        enveloppe_timer = CycleTimer(sweep_pace * CLOCK_FREQUENCY / 64);
-    }
+    enveloppe_pace = volume & 0b111;
+    enveloppe_inc = (volume >> 3) & 1;
+    period_timer = enveloppe_pace;
 }

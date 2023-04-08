@@ -38,9 +38,12 @@ struct Pulse {
 
     uint8_t duty_step;
 
-    Pulse(): length_timer(CLOCK_FREQUENCY / 256, 0),
+    Pulse(uint8_t channel_num): length_timer(CLOCK_FREQUENCY / 256, 0),
              enveloppe_timer(CLOCK_FREQUENCY / 64, 0),
-             elapsed_cycles_duty_step(0) {};
+             elapsed_cycles_duty_step(0),
+             enveloppe_pace(0),
+             enveloppe_inc(0),
+             channel_num(channel_num) {}
     uint16_t wavelength() const;
     int value() const;
     void tick(int cycles, uint8_t& sound_on);
@@ -52,7 +55,12 @@ private:
     CycleTimer length_timer;
     CycleTimer enveloppe_timer;
 
+    uint8_t enveloppe_pace;
     uint8_t current_volume;
+    uint8_t period_timer;
+    uint8_t enveloppe_inc;
+
+    uint8_t channel_num;
 };
 
 struct Apu {
