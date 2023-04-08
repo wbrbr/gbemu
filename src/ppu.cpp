@@ -83,7 +83,7 @@ void Ppu::draw_scanline()
         uint8_t x_off, y_off;
 
         uint8_t bg_col_id = 0xff;
-        uint8_t col = values[0];
+        uint8_t col = 0;
         if (lcdc & BG_WINDOW_ENABLE_BIT) {
             if ((lcdc & WINDOW_ENABLE_BIT) &&  x >= wx-7 && ly >= wy) {
                 uint8_t win_x = x-wx+7;
